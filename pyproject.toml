@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpt-scratch-bro"
+version = "0.1.0"
+description = "Core training module for the Open Language Model (OLMo)"
+readme = "README.md"
+authors = [
+    {name = "Aman Rangapur", email = "amanrangapur@gmail.com"}
+]
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+dependencies = [
+    "numpy<2.0",
+    "torch>=2.6.0",
+    "cached-path>=1.7.2",
+    "requests",
+    "safetensors",
+    "datasets",
+    "tiktoken",
+]
+
+[project.urls]
+Homepage = "https://github.com/aman-17/gpt"
+
+[tool.setuptools]
+packages = ["gpt_from_scratch"]  # Choose which package you want to install
