@@ -1,2 +1,4 @@
-# gpt
-GPT from scratch
+# 911
+LLM from scratch.
+VIBELESS CODING!!
+
