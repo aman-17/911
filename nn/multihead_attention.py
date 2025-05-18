@@ -17,20 +17,18 @@ class MultiHeadAttention(nn.Module):
 
 
     def forward(self, x):
-        b, num_tokens, d_in = x.shape
+        batch_size, num_tokens, d_in = x.shape
         keys = self.W_key(x) #shape (2, 6, 4)
         queries = self.W_query(x) #shape (2, 6, 4)
         values = self.W_value(x) #shape (2, 6, 4)
         
-        keys = keys.view(b, num_tokens, self.num_heads, self.head_dim) #New shape: (2, 6, 2, 2)
-        values = values.view(b, num_tokens, self.num_heads, self.head_dim) #New shape: (2, 6, 2, 2)
-        queries = queries.view(b, num_tokens, self.num_heads, self.head_dim) #New shape: (2, 6, 2, 2)
+        keys = keys.view(batch_size, num_tokens, self.num_heads, self.head_dim) #New shape: (2, 6, 2, 2)
+        values = values.view(batch_size, num_tokens, self.num_heads, self.head_dim) #New shape: (2, 6, 2, 2)
+        queries = queries.view(batch_size, num_tokens, self.num_heads, self.head_dim) #New shape: (2, 6, 2, 2)
         
-        # This transposes the tensors to bring the num_heads dimension before num_tokens
-        keys = keys.transpose(1, 2) #New shape: (2, 2, 6, 2)
-        queries = queries.transpose(1, 2) #New shape: (2, 2, 6, 2)
-        values = values.transpose(1, 2) #New shape: (2, 2, 6, 2)
-        # Perform a dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
+        # This transposes the tensors to bring the num_heads dimension before num_tokens: `SDPA expects this.`
+        keys, queries, values = keys.transpose(1, 2), queries.transpose(1,2), values.transpose(1,2) #New shape: (2, 2, 6, 2)
+        # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
         attn_scores = queries @ keys.transpose(2, 3) #attn_scores shape: (2, 2, 6, 6).
         # Creates a boolean mask to prevent attending to future tokens
         mask_bool = self.mask.bool()[:num_tokens, :num_tokens] #mask_bool shape: (6, 6)
@@ -41,7 +39,7 @@ class MultiHeadAttention(nn.Module):
         attn_weights = self.dropout(attn_weights)
         # attn_weights: (2, 2, 6, 6), values: (2, 2, 6, 2)
         context_vec = (attn_weights @ values).transpose(1, 2) #context_vec: (2, 6, 2, 2)
-        context_vec = context_vec.contiguous().view(b, num_tokens, self.d_out) #context_vec shape: (2, 6, 4)
+        context_vec = context_vec.contiguous().view(batch_size, num_tokens, self.d_out) #context_vec shape: (2, 6, 4)
         context_vec = self.out_proj(context_vec)
 
         return context_vec

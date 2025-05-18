@@ -8,22 +8,18 @@ from nn.gpt_block import GPTModel, generate_text_simple
 from nn.loss_function import calc_loss_batch, calc_total_loss
 # import matplotlib.pyplot as plt
 
-with open("the-verdict.txt", "r", encoding="utf-8") as f:
+with open("initial_data.txt", "r", encoding="utf-8") as f:
     raw_text = f.read()
 
 vocab = load_txt_file(raw_text)
 tokenizer = TokenizerV0(vocab)
 total_characters = len(raw_text)
 total_tokens = len(tokenizer.encode(raw_text))
-print("Characters:", total_characters)
-print("Tokens:", total_tokens)
 
 train_ratio = 0.90
 split_idx = int(train_ratio * len(raw_text))
 train_data = raw_text[:split_idx]
 val_data = raw_text[split_idx:]
-print(f"Train size: {len(train_data)}")
-print(f"Validation size: {len(val_data)}")
 
 torch.manual_seed(123)
 
@@ -52,9 +48,6 @@ val_loader = create_dataloader_v1(
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = GPTModel(train_config)
 model.to(device)
-
-print(f"Train data length: {len(train_data)}")
-print(f"Number of batches in train_loader: {len(train_loader)}")
 
 def generate_and_print_sample(model, tokenizer, device, start_context):
     model.eval()
@@ -112,7 +105,7 @@ optimizer = torch.optim.AdamW(
     lr=0.0004, 
     weight_decay=0.1
 )
-num_epochs = 10
+num_epochs = 30
 
 train_losses, val_losses, tokens_seen = train_model_simple(
     model=model,
@@ -123,7 +116,7 @@ train_losses, val_losses, tokens_seen = train_model_simple(
     num_epochs=num_epochs,
     eval_freq=5,
     eval_iter=1,
-    start_context="Every effort moves you"
+    start_context="Estimates of the age of the Moon range from"
 )
 
 print(train_losses)
@@ -147,5 +140,5 @@ print(train_losses)
 #     plt.show()
 
 # Call plotting function
-epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
+# epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
 # plot_losses(epochs_tensor, tokens_seen, train_losses, val_losses)
