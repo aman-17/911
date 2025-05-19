@@ -31,3 +31,4 @@ Icon
 *.ipr
 .idea_modules/
 .ipynb_checkpoints
+wandb/

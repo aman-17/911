@@ -19,6 +19,7 @@ dependencies = [
     "requests",
     "safetensors",
     "datasets",
+    "wandb",
     "tiktoken",
 ]
 

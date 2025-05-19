@@ -44,7 +44,7 @@ class MultiHeadAttention(nn.Module):
         # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
         attn_scores = queries @ keys.transpose(2, 3) #attn_scores shape: (2, 2, 6, 6).
         # Creates a boolean mask to prevent attending to future tokens
-        mask_bool = self.mask.bool()[:num_tokens, :num_tokens] #mask_bool shape: (6, 6)
+        mask_bool = self.mask.to(torch.bool)[:num_tokens, :num_tokens] #mask_bool shape: (6, 6)
 
         attn_scores.masked_fill_(mask_bool, -torch.inf)
 

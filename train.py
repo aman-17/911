@@ -5,7 +5,7 @@ from data.data_tokenizer import TokenizerV0, load_txt_file
 from data.dataset_utils import create_dataloader_v1
 from nn.gpt_block import GPTModel, generate_text_simple
 from nn.loss_function import calc_loss_batch, calc_total_loss
-# import matplotlib.pyplot as plt
+import wandb
 
 with open("initial_data.txt", "r", encoding="utf-8") as f:
     raw_text = f.read()
@@ -37,6 +37,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = GPTModel(train_config)
 model.to(device)
 
+wandb.login()
+run = wandb.init(project="911-training", config=train_config)
+
 def generate_and_print_sample(model, tokenizer, device, start_context):
     model.eval()
     context_size = model.pos_emb.weight.shape[0]
@@ -64,7 +67,7 @@ def train_model_simple(model, train_loader, optimizer, device,
             optimizer.zero_grad()
             loss = calc_loss_batch(input_batch, target_batch, model, device)
             loss.backward()
-            print(f"Step {global_step}, Batch Loss: {loss.item()}")
+            wandb.log({"Batch loss": loss.item()})
             optimizer.step()
             step_loss.append(loss.item())
             tokens_seen += input_batch.numel()
@@ -73,8 +76,7 @@ def train_model_simple(model, train_loader, optimizer, device,
                 train_loss = calc_total_loss(train_loader, model, device, eval_iter)
                 train_losses.append(train_loss)
                 track_tokens_seen.append(tokens_seen)
-                print(f"Ep {epoch+1} (Step {global_step:06d}): "
-                      f"Train loss {train_loss:.3f}")
+                wandb.log({"global train loss": train_loss})
                 generate_and_print_sample(
                     model, 
                     train_loader.dataset.tokenizer,
@@ -103,25 +105,3 @@ train_losses, tokens_seen = train_model_simple(
 )
 
 print(train_losses)
-
-# def plot_losses(epochs_seen, tokens_seen, train_losses):
-#     fig, ax1 = plt.subplots(figsize=(5, 3))
-    
-#     # Plot losses against epochs
-#     ax1.plot(epochs_seen, train_losses, label="Training loss")
-#     ax1.plot(epochs_seen, linestyle="--", label="Validation loss")
-#     ax1.set_xlabel("Epochs")
-#     ax1.set_ylabel("Loss")
-#     ax1.legend(loc="upper right")
-    
-#     # Add second x-axis for tokens
-#     ax2 = ax1.twiny()
-#     ax2.plot(tokens_seen, train_losses, alpha=0)
-#     ax2.set_xlabel("Tokens seen")
-    
-#     fig.tight_layout()
-#     plt.show()
-
-# Call plotting function
-# epochs_tensor = torch.linspace(0, num_epochs, len(train_losses))
-# plot_losses(epochs_tensor, tokens_seen, train_losses)
