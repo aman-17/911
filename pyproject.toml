@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gpt-scratch-bro"
+name = "911"
 version = "0.1.0"
-description = "Core training module for the Open Language Model (OLMo)"
+description = "Model training for high knowledge of Cars"
 readme = "README.md"
 authors = [
     {name = "Aman Rangapur", email = "amanrangapur@gmail.com"}
