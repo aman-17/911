@@ -11,7 +11,6 @@ htmlcov/
 .eggs/
 *.so
 *.egg
-
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -24,14 +23,11 @@ Icon
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
-
 .vscode/
 *.code-workspace
-
 .idea/
 *.iml
 *.iws
 *.ipr
 .idea_modules/
-
 .ipynb_checkpoints
