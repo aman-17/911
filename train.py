@@ -27,12 +27,11 @@ with open('config.yaml') as f:
 train_loader = create_dataloader_v1(
     train_data,
     batch_size=2,
-    max_length=train_config["context_length"],
-    stride=train_config["context_length"],
+    max_length=train_config["max_seq_length"],
+    stride=train_config["max_seq_length"],
     drop_last=True,
     shuffle=True
 )
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = GPTModel(train_config)
@@ -91,14 +90,13 @@ optimizer = torch.optim.AdamW(
     lr=0.0004, 
     weight_decay=0.1
 )
-num_epochs = 3
 
 train_losses, tokens_seen = train_model_simple(
     model=model,
     train_loader=train_loader,
     optimizer=optimizer,
     device=device,
-    num_epochs=num_epochs,
+    num_epochs=train_config["num_epochs"],
     eval_freq=5,
     eval_iter=1,
     start_context="Estimates of the age of the Moon range from"

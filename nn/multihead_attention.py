@@ -3,7 +3,7 @@ import torch.nn as nn
 from nn.rope import RotaryPositionalEmbeddings
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in: int, d_out: int, max_seq_len: int, dropout: float, num_heads: int, qkv_bias: bool = False, use_rope: bool = True):
+    def __init__(self, d_in: int, d_out: int, max_seq_len: int, num_heads: int, dropout: float, qkv_bias: bool = False, use_rope: bool = True):
         super().__init__()
         assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
         self.d_out = d_out
@@ -15,12 +15,12 @@ class MultiHeadAttention(nn.Module):
         self.out_proj = nn.Linear(d_out, d_out)
         self.dropout = nn.Dropout(dropout)
         self.use_rope = use_rope
+        self.max_seq_len = max_seq_len
         if use_rope:
             self.rope = RotaryPositionalEmbeddings(
                 dim=self.head_dim,
-                max_seq_len=max_seq_len
+                max_seq_len=self.max_seq_len
             )
-        self.max_seq_len = max_seq_len
         self.register_buffer('mask',torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1))
 
 
@@ -36,6 +36,11 @@ class MultiHeadAttention(nn.Module):
         
         # This transposes the tensors to bring the num_heads dimension before num_tokens: `SDPA expects this.`
         keys, queries, values = keys.transpose(1, 2), queries.transpose(1,2), values.transpose(1,2) #New shape: (2, 2, 6, 2)
+        
+        if self.use_rope:
+            queries = self.rope(queries)
+            keys = self.rope(keys)
+
         # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
         attn_scores = queries @ keys.transpose(2, 3) #attn_scores shape: (2, 2, 6, 6).
         # Creates a boolean mask to prevent attending to future tokens

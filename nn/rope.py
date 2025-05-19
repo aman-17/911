@@ -115,5 +115,6 @@ class RotaryPositionalEmbeddings(nn.Module):
 
         # tensor has shape [b, s, n_h, h_d]
         x_out = x_out.flatten(3)
+        # print(x_out)
         return x_out.type_as(x)
 
