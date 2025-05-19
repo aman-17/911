@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
+from nn.rope import RotaryPositionalEmbeddings
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):
+    def __init__(self, d_in: int, d_out: int, max_seq_len: int, dropout: float, num_heads: int, qkv_bias: bool = False, use_rope: bool = True):
         super().__init__()
-        assert d_out % num_heads == 0, "d_out must be divisible by num"
+        assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
         self.d_out = d_out
         self.num_heads = num_heads
         self.head_dim = d_out // num_heads 
@@ -13,7 +14,14 @@ class MultiHeadAttention(nn.Module):
         self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.out_proj = nn.Linear(d_out, d_out)
         self.dropout = nn.Dropout(dropout)
-        self.register_buffer('mask',torch.triu(torch.ones(context_length, context_length), diagonal=1))
+        self.use_rope = use_rope
+        if use_rope:
+            self.rope = RotaryPositionalEmbeddings(
+                dim=self.head_dim,
+                max_seq_len=max_seq_len
+            )
+        self.max_seq_len = max_seq_len
+        self.register_buffer('mask',torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1))
 
 
     def forward(self, x):
