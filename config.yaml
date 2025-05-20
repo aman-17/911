@@ -9,4 +9,4 @@ rope: False
 num_epochs: 50
 initial_lr: 0.0001
 weight_decay: 0.1
-train_data: initial_data.txt
+train_data: wiki_text

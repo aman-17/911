@@ -32,3 +32,4 @@ Icon
 .idea_modules/
 .ipynb_checkpoints
 wandb/
+wiki_text/

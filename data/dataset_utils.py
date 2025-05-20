@@ -1,5 +1,5 @@
 from typing import Tuple
-
+import os
 import tiktoken
 from torch.utils.data import DataLoader
 
@@ -30,13 +30,22 @@ def create_dataloader_v1(
         return_tensors=True,
     )
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=drop_last)
+    dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=drop_last, num_workers=4)
     return dataloader
 
 
 def create_train_loader(train_config) -> Tuple[DataLoader, TokenizerV0]:
-    with open(train_config["train_data"], "r", encoding="utf-8") as f:
-        raw_text = f.read()
+    if os.path.isdir(train_config["train_data"]):
+        raw_text = ""
+        for filename in os.listdir(train_config["train_data"]):
+            if filename.endswith(".txt"):
+                file_path = os.path.join(train_config["train_data"], filename)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    raw_text += f.read()
+                    raw_text += "\n"
+    else:
+        with open(train_config["train_data"], "r", encoding="utf-8") as f:
+            raw_text = f.read()
 
     vocab = load_txt_file(raw_text)
     tokenizer = TokenizerV0(vocab)
