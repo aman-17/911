@@ -1,33 +1,23 @@
 import tiktoken
-import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from data.data_tokenizer import TokenizerV0, load_txt_file
-
-class GPTDatasetV1(Dataset):
-    def __init__(self, txt, tokenizer, max_length, stride):
-        self.tokenizer = tokenizer
-        self.input_ids = []
-        self.target_ids = []
-        token_ids = tokenizer.encode(txt)
-        for i in range(0, len(token_ids) - max_length, stride):
-            input_chunk = token_ids[i:i + max_length]
-            target_chunk = token_ids[i + 1: i + max_length + 1]
-            self.input_ids.append(torch.tensor(input_chunk))
-            self.target_ids.append(torch.tensor(target_chunk))
-
-    def __len__(self):
-        return len(self.input_ids)
-    
-    def __getitem__(self, idx):
-        return self.input_ids[idx], self.target_ids[idx]
-    
+from data.data_loader import DatasetTargaV1, IterableDatasetTargaV1
 
 def create_dataloader_v1(txt, batch_size=4,
-        max_length=256, stride=128, shuffle=True, drop_last=True):
+        max_length=2048, stride=128, shuffle=True, drop_last=True):
     tokenizer = tiktoken.get_encoding("gpt2")
-    dataset = GPTDatasetV1(txt, tokenizer, max_length, stride)
+    # tokenized_text = tokenizer.encode(txt)
+    dataset = IterableDatasetTargaV1(tokenized_data=[txt],
+                                      tokenizer=tokenizer, 
+                                      context_length=max_length, 
+                                      shuffle=shuffle, 
+                                      shuffle_buffer_size=1, 
+                                      return_tensors=True
+                                    )
+    # dataset = DatasetTargaV1(txt, tokenizer, max_length, stride)
+
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+        dataset, batch_size=batch_size, drop_last=drop_last)
     return dataloader
 
 

@@ -28,6 +28,7 @@ def load_txt_file(raw_text) -> dict:
     vocab = {token:integer for integer,token in enumerate(all_words)}
     return vocab
 
+
 # Iterable dataset still pending
 def stream_json_data(file_path, chunk_size=100*1024*1024):
     with open(file_path, 'r', encoding='utf-8') as f:
