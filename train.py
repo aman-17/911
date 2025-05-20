@@ -96,7 +96,7 @@ train_losses, tokens_seen = train_911(
     device=device,
     num_epochs=train_config["num_epochs"],
     eval_freq=10,
-    eval_iter=1,
+    eval_iter=50,
     start_context="Tell me about Porsche Speedster",
 )
 wandb.finish()

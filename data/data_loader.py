@@ -59,10 +59,10 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
 
         self.total_size = sum(len(tokens) for tokens in self.tokenized_data)
         print(
-            f"IterableDatasetTargaV1 initialized with {len(self.tokenized_data)} sequences"
+            f"{len(self.tokenized_data)} sequences"
         )
         for i, seq in enumerate(self.tokenized_data):
-            print(f"Sequence {i} type: {type(seq)}, length: {len(seq)}")
+            print(f"Sequence {i}, length: {len(seq)}")
 
     def __iter__(self) -> Iterator:
         worker_info = torch.utils.data.get_worker_info()
