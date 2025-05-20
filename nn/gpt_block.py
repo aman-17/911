@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
+
 from nn.ffn import LayerNorm
 from nn.transformer_block import TransformerBlock
+
 
 class GPTModel(nn.Module):
     def __init__(self, cfg):
@@ -13,18 +15,12 @@ class GPTModel(nn.Module):
             *[TransformerBlock(cfg) for _ in range(cfg["n_layers"])]
         )
         self.final_norm = LayerNorm(cfg["emb_dim"])
-        self.out_head = nn.Linear(
-            cfg["emb_dim"], 
-            cfg["vocab_size"], 
-            bias=False
-        )
+        self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
 
     def forward(self, in_idx):
         batch_size, seq_len = in_idx.shape
         tok_embeds = self.tok_emb(in_idx)
-        pos_embeds = self.pos_emb(
-            torch.arange(seq_len, device=in_idx.device)
-        )
+        pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))
         x = tok_embeds + pos_embeds
         x = self.drop_emb(x)
         x = self.trf_blocks(x)
@@ -33,29 +29,31 @@ class GPTModel(nn.Module):
         return logits
 
 
-def generate_text_simple(model: nn.Module, idx: torch.Tensor, max_new_tokens: int, context_size: int) -> torch.Tensor:
+def generate_text_simple(
+    model: nn.Module, idx: torch.Tensor, max_new_tokens: int, context_size: int
+) -> torch.Tensor:
     """
     Generate text using a simple greedy sampling strategy.
-    
+
     Args:
         model: The language model
         idx: Input token indices
         max_new_tokens: Number of tokens to generate
         context_size: Size of the context window
-        
+
     Returns:
         torch.Tensor: Generated token indices
     """
 
     if not isinstance(idx, torch.Tensor):
         idx = torch.tensor(idx, dtype=torch.long)
-    
+
     device = next(model.parameters()).device
     idx = idx.to(device).unsqueeze(0)
-    
+
     for _ in range(max_new_tokens):
         idx_cond = idx[:, -context_size:]
-        
+
         with torch.no_grad():
             logits = model(idx_cond)
             logits = logits[:, -1, :]  # Focus on last token

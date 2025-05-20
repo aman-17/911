@@ -1,23 +1,34 @@
 import tiktoken
 from torch.utils.data import DataLoader
-from data.data_tokenizer import TokenizerV0, load_txt_file
+
 from data.data_loader import DatasetTargaV1, IterableDatasetTargaV1
+from data.data_tokenizer import TokenizerV0, load_txt_file
 
-def create_dataloader_v1(txt, batch_size=4,
-        max_length=2048, stride=128, shuffle=True, drop_last=True):
+
+def create_dataloader_v0(
+    txt, batch_size=4, max_length=2048, stride=128, shuffle=True, drop_last=True
+):
     tokenizer = tiktoken.get_encoding("gpt2")
-    # tokenized_text = tokenizer.encode(txt)
-    dataset = IterableDatasetTargaV1(tokenized_data=[txt],
-                                      tokenizer=tokenizer, 
-                                      context_length=max_length, 
-                                      shuffle=shuffle, 
-                                      shuffle_buffer_size=1, 
-                                      return_tensors=True
-                                    )
-    # dataset = DatasetTargaV1(txt, tokenizer, max_length, stride)
+    dataset = DatasetTargaV1(txt, tokenizer, max_length, stride)
 
-    dataloader = DataLoader(
-        dataset, batch_size=batch_size, drop_last=drop_last)
+    dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=drop_last)
+    return dataloader
+
+
+def create_dataloader_v1(
+    txt, batch_size=4, max_length=2048, stride=128, shuffle=True, drop_last=True
+):
+    tokenizer = tiktoken.get_encoding("gpt2")
+    dataset = IterableDatasetTargaV1(
+        tokenized_data=txt,
+        tokenizer=tokenizer,
+        context_length=max_length,
+        shuffle=shuffle,
+        shuffle_buffer_size=1000,
+        return_tensors=True,
+    )
+
+    dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=drop_last)
     return dataloader
 
 
@@ -38,7 +49,6 @@ def create_train_loader(train_config):
         max_length=train_config["max_seq_length"],
         stride=train_config["max_seq_length"],
         drop_last=True,
-        shuffle=True
+        shuffle=True,
     )
     return train_loader, tokenizer
-    

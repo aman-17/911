@@ -1,7 +1,7 @@
-import torch
 import torch.nn as nn
-from nn.multihead_attention import MultiHeadAttention
+
 from nn.ffn import FeedForward, LayerNorm
+from nn.multihead_attention import MultiHeadAttention
 
 
 class TransformerBlock(nn.Module):
@@ -14,7 +14,7 @@ class TransformerBlock(nn.Module):
             num_heads=cfg["n_heads"],
             dropout=cfg["drop_rate"],
             qkv_bias=cfg["qkv_bias"],
-            use_rope=cfg["rope"]
+            use_rope=cfg["rope"],
         )
         self.ff = FeedForward(cfg)
         self.norm1 = LayerNorm(cfg["emb_dim"])

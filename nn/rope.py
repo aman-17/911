@@ -1,6 +1,6 @@
 # from https://github.com/pytorch/torchtune/blob/main/torchtune/modules/position_embeddings.py
 
-from typing import Any, Optional
+from typing import Optional
 
 import torch
 from torch import nn
@@ -117,4 +117,3 @@ class RotaryPositionalEmbeddings(nn.Module):
         x_out = x_out.flatten(3)
         # print(x_out)
         return x_out.type_as(x)
-

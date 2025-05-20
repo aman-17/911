@@ -21,6 +21,9 @@ dependencies = [
     "datasets",
     "wandb",
     "tiktoken",
+    "black",
+    "isort",
+    "ruff"
 ]
 
 [project.urls]
