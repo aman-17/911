@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import tiktoken
 from torch.utils.data import DataLoader
 
@@ -7,7 +9,7 @@ from data.data_tokenizer import TokenizerV0, load_txt_file
 
 def create_dataloader_v0(
     txt, batch_size=4, max_length=2048, stride=128, shuffle=True, drop_last=True
-):
+) -> DataLoader:
     tokenizer = tiktoken.get_encoding("gpt2")
     dataset = DatasetTargaV1(txt, tokenizer, max_length, stride)
 
@@ -17,7 +19,7 @@ def create_dataloader_v0(
 
 def create_dataloader_v1(
     txt, batch_size=4, max_length=2048, stride=128, shuffle=True, drop_last=True
-):
+) -> DataLoader:
     tokenizer = tiktoken.get_encoding("gpt2")
     dataset = IterableDatasetTargaV1(
         tokenized_data=txt,
@@ -32,7 +34,7 @@ def create_dataloader_v1(
     return dataloader
 
 
-def create_train_loader(train_config):
+def create_train_loader(train_config) -> Tuple[DataLoader, TokenizerV0]:
     with open(train_config["train_data"], "r", encoding="utf-8") as f:
         raw_text = f.read()
 
