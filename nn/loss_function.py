@@ -1,7 +1,7 @@
 import torch
 
 
-def calc_loss_batch(input_batch, target_batch, model, device):
+def calc_loss_batch(input_batch, target_batch, model, device) -> torch.Tensor:
     input_batch, target_batch = input_batch.to(device), target_batch.to(device)
     logits = model(input_batch)
     loss = torch.nn.functional.cross_entropy(
@@ -10,7 +10,9 @@ def calc_loss_batch(input_batch, target_batch, model, device):
     return loss
 
 
-def calc_total_loss_for_dataset_v1(data_loader, model, device, num_batches=None):
+def calc_total_loss_for_dataset_v1(
+    data_loader, model, device, num_batches=None
+) -> float:
     total_loss = 0.0
     if num_batches is None:
         num_batches = len(data_loader)
@@ -28,7 +30,7 @@ def calc_total_loss_for_dataset_v1(data_loader, model, device, num_batches=None)
     return total_loss / (num_batches + 0.000001)
 
 
-def calc_total_loss(data_loader, model, device, num_batches=None):
+def calc_total_loss(data_loader, model, device, num_batches=None) -> float:
     total_loss = 0.0
     batch_count = 0
     try:
