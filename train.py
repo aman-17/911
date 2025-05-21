@@ -54,6 +54,7 @@ def train_911(
             loss = calc_loss_batch(input_batch, target_batch, model, device)
             loss.backward()
             wandb.log({"Batch loss": loss.item()})
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             # lr_scheduler.step()
             step_loss.append(loss.item())
@@ -67,8 +68,8 @@ def train_911(
                     {
                         "global train loss": train_loss,
                         "lr": lr_scheduler.get_last_lr()[0],
+                        "grad norm": torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0),
                         "tokens_seen": tokens_seen,
-                        "batch_size": train_loader.batch_size,
                     }
                 )
                 generate_and_print_sample(

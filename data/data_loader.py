@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Iterator, List, Optional
+from typing import Iterator, List, Optional, Union
 
 import numpy as np
 import torch
@@ -29,7 +29,7 @@ class DatasetTargaV1(Dataset):
 class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
     def __init__(
         self,
-        tokenized_data: List[str],
+        tokenized_data: Union[List[str], List[List[int]], List[np.ndarray]],
         tokenizer,
         context_length: int = 2048,
         stride: Optional[int] = None,
@@ -79,15 +79,15 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
 
         buffer = []
         for token_seq in data_to_process:
-            if len(token_seq) <= self.context_length:
+            if len(token_seq) <= self.context_length + 1:
                 print(
-                    f"Warning: Token sequence length {len(token_seq)} is less than context length {self.context_length}"
+                    f"Token sequence length {len(token_seq)} < than context length {self.context_length}"
                 )
                 continue
 
             for i in range(0, len(token_seq) - self.context_length, self.stride):
-                chunk = token_seq[i : i + self.context_length]
-                if len(chunk) == self.context_length:
+                chunk = token_seq[i : i + self.context_length + 1]
+                if len(chunk) == self.context_length + 1:
                     if self.shuffle:
                         buffer.append(chunk)
                         if len(buffer) >= self.shuffle_buffer_size:
