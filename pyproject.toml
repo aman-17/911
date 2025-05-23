@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/aman-17/gpt"
+Homepage = "https://github.com/aman-17/911"
 
 [tool.setuptools]
-packages = ["gpt_from_scratch"]  # Choose which package you want to install
+packages = ["nn"]  # Choose which package you want to install
