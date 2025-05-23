@@ -7,7 +7,7 @@ htmlcov/
 .tox/
 .nox/
 .hypothesis/
-.egg-info/
+*.egg-info/
 .eggs/
 *.so
 *.egg
