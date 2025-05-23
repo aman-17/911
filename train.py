@@ -3,14 +3,15 @@ import yaml
 
 import wandb
 from data.dataset_utils import create_train_loader
-from nn.gpt_block import GPTModel, generate_text_simple
+from nn.gpt_block import GPTModel, nGPTModel
+from nn.utils import generate_text_simple
 from nn.loss_function import calc_loss_batch, calc_total_loss
 
 with open("config.yaml") as f:
     train_config = yaml.safe_load(f)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = GPTModel(train_config)
+model = nGPTModel(train_config)
 model.to(device)
 
 wandb.login()
@@ -56,6 +57,7 @@ def train_911(
             wandb.log({"Batch loss": loss.item()})
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
+            model.normalize_matrices()
             # lr_scheduler.step()
             step_loss.append(loss.item())
             tokens_seen += input_batch.numel()
@@ -75,6 +77,9 @@ def train_911(
                 generate_and_print_sample(
                     model, train_loader.dataset.tokenizer, start_context
                 )
+    # if hasattr(model, 'normalize_matrices'):
+    #     model.normalize_matrices()
+
     if not train_losses:
         train_losses = step_loss
     return train_losses, track_tokens_seen
