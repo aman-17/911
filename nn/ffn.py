@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from nn.activations import GELU
+# from nn.activations import GELU
+from typing import Optional, Dict, Any
 
 
 class FeedForward(nn.Module):
@@ -54,6 +55,105 @@ class NormalizedFeedForward(nn.Module):
         sw1 = self.sw1 * ((self.sw_init_value / self.sw_init_scaling) * self.sqrt_d_model)
         sw3 = self.sw3 * (self.sw_init_value / self.sw_init_scaling)
         return self.w2(F.silu(sw1 * self.w1(x)) * (sw3 * self.w3(x)))
+    
+    @torch.no_grad()
+    def normalize_matrices(self):
+        self._normalize_matrix(self.w1.weight)
+        self._normalize_matrix(self.w2.weight, dim=0)
+        self._normalize_matrix(self.w3.weight)
+    
+    @staticmethod
+    def l2_normalize(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+        return x / torch.linalg.vector_norm(x, dim=dim, keepdim=True).type_as(x)
+
+    def _normalize_matrix(self, w: torch.Tensor, dim: int = -1):
+        w.copy_(self.l2_normalize(w, dim=dim))
+
+class muPFeedForward(nn.Module):
+    """
+    1. First layer (w1, w3): O(1/√d_in) initialization, O(1/d_in) learning rate
+    2. Second layer (w2): O(1/√d_hidden) initialization, O(1) learning rate
+    3. Hidden dimension scaling: O(d_model) 
+    """
+    
+    def __init__(
+        self, 
+        cfg: Dict[str, Any],
+        mup_base_d_model: Optional[int] = None
+    ):
+        super().__init__()
+        self.emb_dim = cfg["emb_dim"]
+        self.hidden_dim = 4 * self.emb_dim
+        self.w1 = nn.Linear(self.emb_dim, self.hidden_dim, bias=False)
+        self.w2 = nn.Linear(self.hidden_dim, self.emb_dim, bias=False)
+        self.w3 = nn.Linear(self.emb_dim, self.hidden_dim, bias=False)
+        self.mup_base_d_model = mup_base_d_model or self.emb_dim
+        self.mup_scale = math.sqrt(self.mup_base_d_model / self.emb_dim)
+        
+        self.base_shapes = {
+            "w1.weight": self.w1.weight.shape,
+            "w2.weight": self.w2.weight.shape,
+            "w3.weight": self.w3.weight.shape,
+        }
+        
+        self._init_weights()
+    
+    def _init_weights(self):
+        std_first = 1.0 / math.sqrt(self.emb_dim)
+        nn.init.normal_(self.w1.weight, mean=0.0, std=std_first)
+        nn.init.normal_(self.w3.weight, mean=0.0, std=std_first)
+        std_second = 1.0 / math.sqrt(self.hidden_dim)
+        nn.init.normal_(self.w2.weight, mean=0.0, std=std_second)
+    
+    def forward(self, x):
+        gate = F.silu(self.w1(x))
+        up = self.w3(x)          
+        hidden = gate * up       
+        output = self.w2(hidden) 
+        return output
+    
+    def get_mup_lr_scale(self, param_name: str, base_lr: float) -> float:
+        if 'w1.weight' in param_name or 'w3.weight' in param_name:
+            return base_lr / self.emb_dim
+        elif 'w2.weight' in param_name:
+            return base_lr
+        else:
+            return base_lr
+
+
+class muPNormalizedFeedForward(muPFeedForward):    
+    def __init__(
+        self, 
+        cfg: Dict[str, Any],
+        mup_base_d_model: Optional[int] = None
+    ):
+        super().__init__(cfg, mup_base_d_model)
+        self.sw_init_value = 1.0
+        self.sw_init_scaling = 1.0 / math.sqrt(self.emb_dim)
+        self.sw1 = nn.Parameter(torch.empty(self.hidden_dim))
+        self.sw3 = nn.Parameter(torch.empty(self.hidden_dim))
+        
+        self.sqrt_d_model = math.sqrt(self.emb_dim)
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        super()._init_weights()
+        
+        nn.init.ones_(self.sw1)
+        nn.init.ones_(self.sw3)
+        with torch.no_grad():
+            self.sw1.mul_(self.sw_init_scaling)
+            self.sw3.mul_(self.sw_init_scaling)
+    
+    def forward(self, x):
+        sw1 = (self.sw1 * (self.sw_init_value / self.sw_init_scaling)).view(1, 1, -1)
+        sw3 = (self.sw3 * (self.sw_init_value / self.sw_init_scaling)).view(1, 1, -1)
+        
+        gate = F.silu(sw1 * self.w1(x))
+        up = sw3 * self.w3(x)
+        hidden = gate * up
+        output = self.w2(hidden)
+        return output
     
     @torch.no_grad()
     def normalize_matrices(self):

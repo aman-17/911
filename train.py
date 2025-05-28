@@ -1,17 +1,38 @@
 import torch
 import yaml
+import os
+import argparse
 
 import wandb
 from data.dataset_utils import create_train_loader
 from nn.gpt_block import GPTModel, nGPTModel
+from nn.mup_gpt_model import muPGPTModel, muPGPTConfig
 from nn.utils import generate_text_simple
 from nn.loss_function import calc_loss_batch, calc_total_loss
+
+parser = argparse.ArgumentParser(description='Train GPT model with optional muP scaling')
+parser.add_argument('--use_mup', action='store_true', help='Use muP scaling')
+parser.add_argument('--mup_base_d_model', type=int, default=None, help='Base model dimension for muP scaling')
+parser.add_argument('--use_normalized_blocks', action='store_true', help='Use normalized FFN blocks with muP')
+parser.add_argument('--coord_check', action='store_true', help='Run coordinate check')
+args, unknown = parser.parse_known_args()
 
 with open("config.yaml") as f:
     train_config = yaml.safe_load(f)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = nGPTModel(train_config)
+
+if args.use_mup:
+    print(f"Using muP model with base_d_model={args.mup_base_d_model}")
+    model = muPGPTModel(
+        train_config, 
+        mup_base_d_model=args.mup_base_d_model,
+        use_normalized_blocks=args.use_normalized_blocks
+    )
+else:
+    print("Using standard nGPT model")
+    model = nGPTModel(train_config)
+
 model.to(device)
 
 wandb.login()
@@ -57,8 +78,8 @@ def train_911(
             wandb.log({"Batch loss": loss.item()})
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
-            model.normalize_matrices()
-            # lr_scheduler.step()
+            if hasattr(model, 'normalize_matrices') and not args.use_mup:
+                model.normalize_matrices()
             step_loss.append(loss.item())
             tokens_seen += input_batch.numel()
             global_step += 1
@@ -85,11 +106,39 @@ def train_911(
     return train_losses, track_tokens_seen
 
 
-optimizer = torch.optim.AdamW(
-    model.parameters(),
-    lr=train_config["initial_lr"],
-    weight_decay=train_config["weight_decay"],
-)
+if args.use_mup and hasattr(model, 'get_mup_lr_scales'):
+    print("Creating muP-scaled optimizer")
+    lr_scales = model.get_mup_lr_scales(train_config["initial_lr"])
+    lr_groups = {}
+    for name, param in model.named_parameters():
+        if name in lr_scales:
+            lr = lr_scales[name]
+            if lr not in lr_groups:
+                lr_groups[lr] = []
+            lr_groups[lr].append(param)
+        else:
+            base_lr = train_config["initial_lr"]
+            if base_lr not in lr_groups:
+                lr_groups[base_lr] = []
+            lr_groups[base_lr].append(param)
+    
+    param_groups = []
+    for lr, params in lr_groups.items():
+        param_groups.append({
+            'params': params,
+            'lr': lr,
+            'weight_decay': train_config["weight_decay"]
+        })
+    
+    optimizer = torch.optim.AdamW(param_groups)
+    print(f"Created optimizer with {len(param_groups)} parameter groups")
+else:
+    print("Creating standard optimizer")
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=train_config["initial_lr"],
+        weight_decay=train_config["weight_decay"],
+    )
 learning_rate_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     optimizer, train_config["num_epochs"], eta_min=0.0, last_epoch=-1
 )
