@@ -1,9 +1,9 @@
 import torch.nn as nn
 
-from nn.ffn import FeedForward
-from nn.norms import LayerNorm
 from nn.attention.multihead_attention import MultiHeadAttention
 from nn.attention.nsa import NativeSparseAttention
+from nn.ffn import FeedForward
+from nn.norms import LayerNorm
 
 
 class TransformerBlock(nn.Module):
@@ -35,7 +35,7 @@ class TransformerBlock(nn.Module):
                 qkv_bias=cfg["qkv_bias"],
                 use_rope=cfg["rope"],
             )
-        
+
         self.ff = FeedForward(cfg)
         self.norm1 = LayerNorm(cfg["emb_dim"])
         self.norm2 = LayerNorm(cfg["emb_dim"])

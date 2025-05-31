@@ -4,8 +4,8 @@ import yaml
 import wandb
 from data.dataset_utils import create_train_loader
 from nn.gpt_block import GPTModel, nGPTModel
-from nn.utils import generate_text_simple
 from nn.loss_function import calc_loss_batch, calc_total_loss
+from nn.utils import generate_text_simple
 
 with open("config.yaml") as f:
     train_config = yaml.safe_load(f)
@@ -70,7 +70,9 @@ def train_911(
                     {
                         "global train loss": train_loss,
                         "lr": lr_scheduler.get_last_lr()[0],
-                        "grad norm": torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0),
+                        "grad norm": torch.nn.utils.clip_grad_norm_(
+                            model.parameters(), 1.0
+                        ),
                         "tokens_seen": tokens_seen,
                     }
                 )

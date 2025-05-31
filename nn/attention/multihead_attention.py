@@ -1,7 +1,9 @@
-import torch
-import torch.nn as nn
 import math
 from typing import Optional
+
+import torch
+import torch.nn as nn
+
 from nn.rope import RotaryPositionalEmbeddings
 
 
@@ -123,14 +125,10 @@ class NormalizedMultiHeadAttention(nn.Module):
         )
         self.sq_init_value = 1.0
         self.sq_init_scaling = 1.0 / math.sqrt(d_in)
-        self.sq = nn.Parameter(
-            torch.empty(self.head_dim * self.num_heads)
-        )
+        self.sq = nn.Parameter(torch.empty(self.head_dim * self.num_heads))
         self.sk_init_value = 1.0
         self.sk_init_scaling = 1.0 / math.sqrt(d_in)
-        self.sk = nn.Parameter(
-            torch.empty(self.head_dim * self.n_kv_heads)
-        )
+        self.sk = nn.Parameter(torch.empty(self.head_dim * self.n_kv_heads))
 
         self.sqrt_head_dim = math.sqrt(self.head_dim)
         self.reset_parameters()
@@ -203,7 +201,7 @@ class NormalizedMultiHeadAttention(nn.Module):
         self._normalize_matrix(self.w_key.weight)
         self._normalize_matrix(self.w_value.weight)
         self._normalize_matrix(self.out_proj.weight, dim=0)
-    
+
     @staticmethod
     def l2_normalize(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
         return x / torch.linalg.vector_norm(x, dim=dim, keepdim=True).type_as(x)

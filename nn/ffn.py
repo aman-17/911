@@ -1,8 +1,10 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from nn.activations import GELU
+
+# from nn.activations import GELU
 
 
 class FeedForward(nn.Module):
@@ -21,7 +23,7 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
-    
+
 
 class NormalizedFeedForward(nn.Module):
     def __init__(self, cfg):
@@ -51,16 +53,18 @@ class NormalizedFeedForward(nn.Module):
             self.sw3.mul_(self.sw_init_scaling)
 
     def forward(self, x):
-        sw1 = self.sw1 * ((self.sw_init_value / self.sw_init_scaling) * self.sqrt_d_model)
+        sw1 = self.sw1 * (
+            (self.sw_init_value / self.sw_init_scaling) * self.sqrt_d_model
+        )
         sw3 = self.sw3 * (self.sw_init_value / self.sw_init_scaling)
         return self.w2(F.silu(sw1 * self.w1(x)) * (sw3 * self.w3(x)))
-    
+
     @torch.no_grad()
     def normalize_matrices(self):
         self._normalize_matrix(self.w1.weight)
         self._normalize_matrix(self.w2.weight, dim=0)
         self._normalize_matrix(self.w3.weight)
-    
+
     @staticmethod
     def l2_normalize(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
         return x / torch.linalg.vector_norm(x, dim=dim, keepdim=True).type_as(x)
