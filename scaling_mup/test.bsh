@@ -1,0 +1,388 @@
+# This is a base shape file encoded in yaml
+# - `null` indicates a dimension is "finite", i.e. a non-"width" dimension
+# - a number indicates the base dimension of an "infinite" dimension, i.e. some notion of "width"
+final_norm.scale:
+- 64
+final_norm.shift:
+- 64
+out_head.weight:
+- null
+- 64
+pos_emb.weight:
+- null
+- 64
+tok_emb.weight:
+- null
+- 64
+trf_blocks.0.att.out_proj.bias:
+- 64
+trf_blocks.0.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.0.att.w_key.weight:
+- 64
+- 64
+trf_blocks.0.att.w_query.weight:
+- 64
+- 64
+trf_blocks.0.att.w_value.weight:
+- 64
+- 64
+trf_blocks.0.ff.w1.weight:
+- 256
+- 64
+trf_blocks.0.ff.w2.weight:
+- 64
+- 256
+trf_blocks.0.ff.w3.weight:
+- 256
+- 64
+trf_blocks.0.norm1.scale:
+- 64
+trf_blocks.0.norm1.shift:
+- 64
+trf_blocks.0.norm2.scale:
+- 64
+trf_blocks.0.norm2.shift:
+- 64
+trf_blocks.1.att.out_proj.bias:
+- 64
+trf_blocks.1.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.1.att.w_key.weight:
+- 64
+- 64
+trf_blocks.1.att.w_query.weight:
+- 64
+- 64
+trf_blocks.1.att.w_value.weight:
+- 64
+- 64
+trf_blocks.1.ff.w1.weight:
+- 256
+- 64
+trf_blocks.1.ff.w2.weight:
+- 64
+- 256
+trf_blocks.1.ff.w3.weight:
+- 256
+- 64
+trf_blocks.1.norm1.scale:
+- 64
+trf_blocks.1.norm1.shift:
+- 64
+trf_blocks.1.norm2.scale:
+- 64
+trf_blocks.1.norm2.shift:
+- 64
+trf_blocks.10.att.out_proj.bias:
+- 64
+trf_blocks.10.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.10.att.w_key.weight:
+- 64
+- 64
+trf_blocks.10.att.w_query.weight:
+- 64
+- 64
+trf_blocks.10.att.w_value.weight:
+- 64
+- 64
+trf_blocks.10.ff.w1.weight:
+- 256
+- 64
+trf_blocks.10.ff.w2.weight:
+- 64
+- 256
+trf_blocks.10.ff.w3.weight:
+- 256
+- 64
+trf_blocks.10.norm1.scale:
+- 64
+trf_blocks.10.norm1.shift:
+- 64
+trf_blocks.10.norm2.scale:
+- 64
+trf_blocks.10.norm2.shift:
+- 64
+trf_blocks.11.att.out_proj.bias:
+- 64
+trf_blocks.11.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.11.att.w_key.weight:
+- 64
+- 64
+trf_blocks.11.att.w_query.weight:
+- 64
+- 64
+trf_blocks.11.att.w_value.weight:
+- 64
+- 64
+trf_blocks.11.ff.w1.weight:
+- 256
+- 64
+trf_blocks.11.ff.w2.weight:
+- 64
+- 256
+trf_blocks.11.ff.w3.weight:
+- 256
+- 64
+trf_blocks.11.norm1.scale:
+- 64
+trf_blocks.11.norm1.shift:
+- 64
+trf_blocks.11.norm2.scale:
+- 64
+trf_blocks.11.norm2.shift:
+- 64
+trf_blocks.2.att.out_proj.bias:
+- 64
+trf_blocks.2.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.2.att.w_key.weight:
+- 64
+- 64
+trf_blocks.2.att.w_query.weight:
+- 64
+- 64
+trf_blocks.2.att.w_value.weight:
+- 64
+- 64
+trf_blocks.2.ff.w1.weight:
+- 256
+- 64
+trf_blocks.2.ff.w2.weight:
+- 64
+- 256
+trf_blocks.2.ff.w3.weight:
+- 256
+- 64
+trf_blocks.2.norm1.scale:
+- 64
+trf_blocks.2.norm1.shift:
+- 64
+trf_blocks.2.norm2.scale:
+- 64
+trf_blocks.2.norm2.shift:
+- 64
+trf_blocks.3.att.out_proj.bias:
+- 64
+trf_blocks.3.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.3.att.w_key.weight:
+- 64
+- 64
+trf_blocks.3.att.w_query.weight:
+- 64
+- 64
+trf_blocks.3.att.w_value.weight:
+- 64
+- 64
+trf_blocks.3.ff.w1.weight:
+- 256
+- 64
+trf_blocks.3.ff.w2.weight:
+- 64
+- 256
+trf_blocks.3.ff.w3.weight:
+- 256
+- 64
+trf_blocks.3.norm1.scale:
+- 64
+trf_blocks.3.norm1.shift:
+- 64
+trf_blocks.3.norm2.scale:
+- 64
+trf_blocks.3.norm2.shift:
+- 64
+trf_blocks.4.att.out_proj.bias:
+- 64
+trf_blocks.4.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.4.att.w_key.weight:
+- 64
+- 64
+trf_blocks.4.att.w_query.weight:
+- 64
+- 64
+trf_blocks.4.att.w_value.weight:
+- 64
+- 64
+trf_blocks.4.ff.w1.weight:
+- 256
+- 64
+trf_blocks.4.ff.w2.weight:
+- 64
+- 256
+trf_blocks.4.ff.w3.weight:
+- 256
+- 64
+trf_blocks.4.norm1.scale:
+- 64
+trf_blocks.4.norm1.shift:
+- 64
+trf_blocks.4.norm2.scale:
+- 64
+trf_blocks.4.norm2.shift:
+- 64
+trf_blocks.5.att.out_proj.bias:
+- 64
+trf_blocks.5.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.5.att.w_key.weight:
+- 64
+- 64
+trf_blocks.5.att.w_query.weight:
+- 64
+- 64
+trf_blocks.5.att.w_value.weight:
+- 64
+- 64
+trf_blocks.5.ff.w1.weight:
+- 256
+- 64
+trf_blocks.5.ff.w2.weight:
+- 64
+- 256
+trf_blocks.5.ff.w3.weight:
+- 256
+- 64
+trf_blocks.5.norm1.scale:
+- 64
+trf_blocks.5.norm1.shift:
+- 64
+trf_blocks.5.norm2.scale:
+- 64
+trf_blocks.5.norm2.shift:
+- 64
+trf_blocks.6.att.out_proj.bias:
+- 64
+trf_blocks.6.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.6.att.w_key.weight:
+- 64
+- 64
+trf_blocks.6.att.w_query.weight:
+- 64
+- 64
+trf_blocks.6.att.w_value.weight:
+- 64
+- 64
+trf_blocks.6.ff.w1.weight:
+- 256
+- 64
+trf_blocks.6.ff.w2.weight:
+- 64
+- 256
+trf_blocks.6.ff.w3.weight:
+- 256
+- 64
+trf_blocks.6.norm1.scale:
+- 64
+trf_blocks.6.norm1.shift:
+- 64
+trf_blocks.6.norm2.scale:
+- 64
+trf_blocks.6.norm2.shift:
+- 64
+trf_blocks.7.att.out_proj.bias:
+- 64
+trf_blocks.7.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.7.att.w_key.weight:
+- 64
+- 64
+trf_blocks.7.att.w_query.weight:
+- 64
+- 64
+trf_blocks.7.att.w_value.weight:
+- 64
+- 64
+trf_blocks.7.ff.w1.weight:
+- 256
+- 64
+trf_blocks.7.ff.w2.weight:
+- 64
+- 256
+trf_blocks.7.ff.w3.weight:
+- 256
+- 64
+trf_blocks.7.norm1.scale:
+- 64
+trf_blocks.7.norm1.shift:
+- 64
+trf_blocks.7.norm2.scale:
+- 64
+trf_blocks.7.norm2.shift:
+- 64
+trf_blocks.8.att.out_proj.bias:
+- 64
+trf_blocks.8.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.8.att.w_key.weight:
+- 64
+- 64
+trf_blocks.8.att.w_query.weight:
+- 64
+- 64
+trf_blocks.8.att.w_value.weight:
+- 64
+- 64
+trf_blocks.8.ff.w1.weight:
+- 256
+- 64
+trf_blocks.8.ff.w2.weight:
+- 64
+- 256
+trf_blocks.8.ff.w3.weight:
+- 256
+- 64
+trf_blocks.8.norm1.scale:
+- 64
+trf_blocks.8.norm1.shift:
+- 64
+trf_blocks.8.norm2.scale:
+- 64
+trf_blocks.8.norm2.shift:
+- 64
+trf_blocks.9.att.out_proj.bias:
+- 64
+trf_blocks.9.att.out_proj.weight:
+- 64
+- 64
+trf_blocks.9.att.w_key.weight:
+- 64
+- 64
+trf_blocks.9.att.w_query.weight:
+- 64
+- 64
+trf_blocks.9.att.w_value.weight:
+- 64
+- 64
+trf_blocks.9.ff.w1.weight:
+- 256
+- 64
+trf_blocks.9.ff.w2.weight:
+- 64
+- 256
+trf_blocks.9.ff.w3.weight:
+- 256
+- 64
+trf_blocks.9.norm1.scale:
+- 64
+trf_blocks.9.norm1.shift:
+- 64
+trf_blocks.9.norm2.scale:
+- 64
+trf_blocks.9.norm2.shift:
+- 64

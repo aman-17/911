@@ -69,6 +69,7 @@ class NormalizedFeedForward(nn.Module):
     def _normalize_matrix(self, w: torch.Tensor, dim: int = -1):
         w.copy_(self.l2_normalize(w, dim=dim))
 
+
 class muPFeedForward(nn.Module):
     """
     1. First layer (w1, w3): O(1/√d_in) initialization, O(1/d_in) learning rate

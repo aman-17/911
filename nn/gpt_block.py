@@ -4,7 +4,7 @@ import math
 from typing import Dict, Any, Optional
 from nn.norms import LayerNorm
 from nn.transformer_block import TransformerBlock, muPTransformerBlock
-
+from mup import MuReadout
 
 class GPTModel(nn.Module):
     def __init__(self, cfg):
@@ -115,7 +115,7 @@ class muPGPTModel(nn.Module):
             ) for _ in range(cfg["n_layers"])]
         )
         self.final_norm = LayerNorm(cfg["emb_dim"])
-        self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
+        self.out_head = MuReadout(cfg["emb_dim"], cfg["vocab_size"], bias=False)
         self.base_shapes = {
             "tok_emb.weight": self.tok_emb.weight.shape,
             "pos_emb.weight": self.pos_emb.weight.shape,
@@ -225,3 +225,4 @@ class muPGPTConfig:
                 scaled_config["emb_dim"] = (scaled_config["emb_dim"] // scaled_config["n_heads"]) * scaled_config["n_heads"]
         
         return scaled_config
+    
