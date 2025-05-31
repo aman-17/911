@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 def generate_text_simple(
     model: nn.Module, idx: torch.Tensor, max_new_tokens: int, context_size: int
 ) -> torch.Tensor:

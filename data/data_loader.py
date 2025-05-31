@@ -58,9 +58,7 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
         self.return_tensors = return_tensors
 
         self.total_size = sum(len(tokens) for tokens in self.tokenized_data)
-        print(
-            f"{len(self.tokenized_data)} sequences"
-        )
+        print(f"{len(self.tokenized_data)} sequences")
         for i, seq in enumerate(self.tokenized_data):
             print(f"Sequence {i}, length: {len(seq)}")
 

@@ -30,4 +30,4 @@ dependencies = [
 Homepage = "https://github.com/aman-17/911"
 
 [tool.setuptools]
-packages = ["nn"]  # Choose which package you want to install
+packages = ["nn"]

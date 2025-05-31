@@ -1,6 +1,7 @@
+import math
+
 import torch
 import torch.nn as nn
-import math
 
 from nn.norms import LayerNorm
 from nn.transformer_block import TransformerBlock
@@ -67,7 +68,7 @@ class nGPTModel(nn.Module):
         sz = self.sz * (self.sz_init_value / self.sz_init_scaling)
         logits = sz * self.out_head(x)
         return logits
-    
+
     @torch.no_grad()
     def normalize_matrices(self):
         self._normalize_matrix(self.out_head.weight)
@@ -77,6 +78,6 @@ class nGPTModel(nn.Module):
     @staticmethod
     def l2_normalize(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
         return x / torch.linalg.vector_norm(x, dim=dim, keepdim=True).type_as(x)
-    
+
     def _normalize_matrix(self, w: torch.Tensor, dim: int = -1):
         w.copy_(self.l2_normalize(w, dim=dim))

@@ -1,5 +1,6 @@
-from typing import Tuple
 import os
+from typing import Tuple
+
 import tiktoken
 from torch.utils.data import DataLoader
 
@@ -30,7 +31,9 @@ def create_dataloader_v1(
         return_tensors=True,
     )
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=drop_last, num_workers=4)
+    dataloader = DataLoader(
+        dataset, batch_size=batch_size, drop_last=drop_last, num_workers=4
+    )
     return dataloader
 
 

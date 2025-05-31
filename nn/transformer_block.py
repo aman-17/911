@@ -1,22 +1,41 @@
 import torch.nn as nn
 
+from nn.attention.multihead_attention import MultiHeadAttention
+from nn.attention.nsa import NativeSparseAttention
 from nn.ffn import FeedForward
 from nn.norms import LayerNorm
-from nn.multihead_attention import MultiHeadAttention
 
 
 class TransformerBlock(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.att = MultiHeadAttention(
-            d_in=cfg["emb_dim"],
-            d_out=cfg["emb_dim"],
-            max_seq_len=cfg["max_seq_length"],
-            num_heads=cfg["n_heads"],
-            dropout=cfg["drop_rate"],
-            qkv_bias=cfg["qkv_bias"],
-            use_rope=cfg["rope"],
-        )
+        if cfg.get("attention", "mha") == "nsa":
+            self.att = NativeSparseAttention(
+                d_in=cfg["emb_dim"],
+                d_out=cfg["emb_dim"],
+                max_seq_len=cfg["max_seq_length"],
+                num_heads=cfg["n_heads"],
+                dropout=cfg["drop_rate"],
+                n_kv_heads=cfg.get("n_kv_heads", cfg["n_heads"]),
+                qkv_bias=cfg["qkv_bias"],
+                use_rope=cfg["rope"],
+                compression_block_size=cfg.get("compression_block_size", 16),
+                compression_stride=cfg.get("compression_stride", 16),
+                selection_block_size=cfg.get("selection_block_size", 8),
+                selection_top_k=cfg.get("selection_top_k", 2),
+                window_size=cfg.get("window_size", 256),
+            )
+        else:
+            self.att = MultiHeadAttention(
+                d_in=cfg["emb_dim"],
+                d_out=cfg["emb_dim"],
+                max_seq_len=cfg["max_seq_length"],
+                num_heads=cfg["n_heads"],
+                dropout=cfg["drop_rate"],
+                qkv_bias=cfg["qkv_bias"],
+                use_rope=cfg["rope"],
+            )
+
         self.ff = FeedForward(cfg)
         self.norm1 = LayerNorm(cfg["emb_dim"])
         self.norm2 = LayerNorm(cfg["emb_dim"])
