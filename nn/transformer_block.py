@@ -2,6 +2,7 @@ import torch.nn as nn
 
 from nn.attention.multihead_attention import MultiHeadAttention
 from nn.attention.nsa import NativeSparseAttention
+from nn.attention.multihead_latent_attention import MLAAttention
 from nn.ffn import FeedForward
 from nn.norms import LayerNorm
 
@@ -25,6 +26,8 @@ class TransformerBlock(nn.Module):
                 selection_top_k=cfg.get("selection_top_k", 2),
                 window_size=cfg.get("window_size", 256),
             )
+        elif cfg.get("attention", "mha") == "mla":
+            self.att = MLAAttention(cfg)
         else:
             self.att = MultiHeadAttention(
                 d_in=cfg["emb_dim"],
