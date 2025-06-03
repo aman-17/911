@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from nn.attention.multihead_attention import MultiHeadAttention
 from nn.attention.nsa import NativeSparseAttention
-from nn.attention.multihead_latent_attention import MLAAttention
+from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.ffn import FeedForward
 from nn.norms import LayerNorm
 
@@ -27,7 +27,23 @@ class TransformerBlock(nn.Module):
                 window_size=cfg.get("window_size", 256),
             )
         elif cfg.get("attention", "mha") == "mla":
-            self.att = MLAAttention(cfg)
+            self.att = MultiHeadLatentAttention(
+                d_in=cfg["emb_dim"],
+                d_out=cfg["emb_dim"],
+                max_seq_len=cfg["max_seq_length"],
+                num_heads=cfg["n_heads"],
+                dropout=cfg["drop_rate"],
+                n_kv_heads=cfg.get("n_kv_heads", cfg["n_heads"]),
+                qkv_bias=cfg["qkv_bias"],
+                use_rope=cfg["rope"],
+                q_lora_rank=cfg.get("q_lora_rank", None),
+                kv_lora_rank=cfg.get("kv_lora_rank", cfg["emb_dim"] // 2),
+                qk_rope_head_dim=cfg.get("qk_rope_head_dim", 64),
+                qk_nope_head_dim=cfg.get("qk_nope_head_dim", None),
+                v_head_dim=cfg.get("v_head_dim", cfg["emb_dim"] // cfg["n_heads"]),
+                rope_theta=cfg.get("rope_theta", 10000.0),
+                softcap=cfg.get("softcap", None),
+            )
         else:
             self.att = MultiHeadAttention(
                 d_in=cfg["emb_dim"],

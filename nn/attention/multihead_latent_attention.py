@@ -1,224 +1,224 @@
-# from: https://github.com/fxmeng/TransMLA/blob/main/transmla/transformers/mla.py
-
-from typing import Optional, Tuple
-
 import torch
-from torch import nn
+import torch.nn as nn
 import torch.nn.functional as F
-from transformers.cache_utils import Cache
-from transformers.modeling_flash_attention_utils import FlashAttentionKwargs
-from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-from transformers.processing_utils import Unpack
-import logging
-logger = logging.getLogger(__name__)
+from typing import Optional
 
+from nn.norms import RMSNorm
 from nn.rope import RotaryPositionalEmbeddings
 
-def rotate_half(x):
-    """Rotates half the hidden dims of the input."""
+
+def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    """Rotates half the hidden dims of the input for RoPE."""
     x1 = x[..., : x.shape[-1] // 2]
     x2 = x[..., x.shape[-1] // 2 :]
     return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
-    """Applies Rotary Position Embedding to the query and key tensors.
-
-    Args:
-        q (`torch.Tensor`): The query tensor.
-        k (`torch.Tensor`): The key tensor.
-        cos (`torch.Tensor`): The cosine part of the rotary embedding.
-        sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`, *optional*):
-            Deprecated and unused.
-        unsqueeze_dim (`int`, *optional*, defaults to 1):
-            The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
-            sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
-            that cos[position_ids] and sin[position_ids] have the shape [batch_size, seq_len, head_dim]. Then, if q and
-            k have the shape [batch_size, heads, seq_len, head_dim], then setting unsqueeze_dim=1 makes
-            cos[position_ids] and sin[position_ids] broadcastable to the shapes of q and k. Similarly, if q and k have
-            the shape [batch_size, seq_len, heads, head_dim], then set unsqueeze_dim=2.
-    Returns:
-        `tuple(torch.Tensor)` comprising of the query and key tensors rotated using the Rotary Position Embedding.
+def apply_rotary_emb(
+    x: torch.Tensor, 
+    freqs_cis: torch.Tensor,
+    dtype: Optional[torch.dtype] = None
+) -> torch.Tensor:
     """
-    cos = cos.unsqueeze(unsqueeze_dim)
-    sin = sin.unsqueeze(unsqueeze_dim)
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
+    Apply rotary embeddings to input tensor using complex number multiplication.
+    
+    Args:
+        x: Input tensor of shape [batch_size, seq_len, n_heads, head_dim]
+        freqs_cis: Precomputed frequency tensor (complex)
+        dtype: Output dtype
+        
+    Returns:
+        Tensor with rotary embeddings applied
+    """
+    x_reshape = x.float().reshape(*x.shape[:-1], -1, 2)
+    x_complex = torch.view_as_complex(x_reshape)
+    
+    freqs_cis = freqs_cis.unsqueeze(2) if x.dim() == 4 else freqs_cis
+    x_rotated = x_complex * freqs_cis
+    
+    x_out = torch.view_as_real(x_rotated)
+    x_out = x_out.reshape(*x.shape)
+    
+    return x_out.to(dtype if dtype is not None else x.dtype)
+
+
+def precompute_freqs_cis(
+    dim: int,
+    max_seq_len: int,
+    theta: float = 10000.0,
+    rope_factor: float = 1.0
+) -> torch.Tensor:
+    """
+    Precompute the frequency tensor for rotary embeddings.
+    
+    Args:
+        dim: Dimension of the embeddings
+        max_seq_len: Maximum sequence length
+        theta: Base for the frequency calculation
+        rope_factor: Scaling factor for RoPE
+        
+    Returns:
+        Complex tensor with precomputed frequencies
+    """
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
+    t = torch.arange(max_seq_len, dtype=torch.float32)
+    
+    if rope_factor != 1.0:
+        t = t / rope_factor
+        
+    freqs = torch.outer(t, freqs)
+    freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
+    return freqs_cis
 
 
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     """
-    This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
-    num_key_value_heads, seqlen, head_dim) to (batch, num_attention_heads, seqlen, head_dim)
+    Repeat key/value heads for multi-query attention.
+    From (batch, n_kv_heads, seq_len, head_dim) to (batch, n_heads, seq_len, head_dim)
     """
-    batch, num_key_value_heads, slen, head_dim = hidden_states.shape
     if n_rep == 1:
         return hidden_states
-    hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
-    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
+    batch, seq_len, n_kv_heads, head_dim = hidden_states.shape
+    hidden_states = hidden_states[:, :, :, None, :].expand(
+        batch, seq_len, n_kv_heads, n_rep, head_dim
+    )
+    return hidden_states.reshape(batch, seq_len, n_kv_heads * n_rep, head_dim)
 
 
-def eager_attention_forward(
-    module: nn.Module,
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    attention_mask: Optional[torch.Tensor],
-    dropout: float = 0.0,
-    scaling: Optional[float] = None,
-    softcap: Optional[float] = None,
-    **kwargs,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    if scaling is None:
-        scaling = module.head_dim**-0.5
-
-    key_states = repeat_kv(key, module.num_key_value_groups)
-    value_states = repeat_kv(value, module.num_key_value_groups)
-
-    attn_weights = torch.matmul(query, key_states.transpose(2, 3)) * scaling
-
-    if softcap is not None:
-        attn_weights = attn_weights / softcap
-        attn_weights = torch.tanh(attn_weights)
-        attn_weights = attn_weights * softcap
-    if attention_mask is not None:  # no matter the length, we just slice it
-        causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
-        attn_weights = attn_weights + causal_mask
-
-    # upcast attention to fp32
-    attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query.dtype)
-    attn_weights = nn.functional.dropout(attn_weights, p=dropout, training=module.training)
-    attn_output = torch.matmul(attn_weights, value_states)
-    attn_output = attn_output.transpose(1, 2).contiguous()
-    return attn_output, attn_weights
-
-
-class MLAAttention(nn.Module):
-    """
-    Modified from `transformers.models.llama.modeling_deepseek_v3.DeepseekV3Attention`
-    add support for attention bias and softcapping
-    """
-    def __init__(self, config, layer_idx: int = 0):
+class MultiHeadLatentAttention(nn.Module):    
+    def __init__(
+        self,
+        d_in: int,
+        d_out: int,
+        max_seq_len: int,
+        num_heads: int,
+        dropout: float,
+        n_kv_heads: Optional[int] = None,
+        qkv_bias: bool = False,
+        use_rope: bool = True,
+        q_lora_rank: Optional[int] = None,
+        kv_lora_rank: Optional[int] = None,
+        qk_rope_head_dim: int = 64,
+        qk_nope_head_dim: Optional[int] = None,
+        v_head_dim: Optional[int] = None,
+        rope_theta: float = 10000.0,
+        softcap: Optional[float] = None,
+    ):
         super().__init__()
-        self.config = config
-        self.layer_idx = layer_idx
-        self.num_heads = config['n_heads']
-        self.num_key_value_heads = config.get('n_kv_heads', config['n_heads'])
-        self.num_key_value_groups = self.num_heads // self.num_key_value_heads
-        self.attention_dropout = config.get('drop_rate', 0.1)
-        self.rope_theta = config.get('rope_theta', 10000.0)
-        self.q_lora_rank = config.get('q_lora_rank', None)
-        self.kv_lora_rank = config.get('kv_lora_rank', config['emb_dim'] // 2)
-        self.qk_rope_head_dim = config.get('qk_rope_head_dim', 64)
-        
-        if config.get('qk_nope_head_dim', 0) == 0:
-            self.qk_nope_head_dim = (config['emb_dim'] // self.num_heads) - self.qk_rope_head_dim
-        else:
-            self.qk_nope_head_dim = config['qk_nope_head_dim']
-            
-        self.v_head_dim = config.get('v_head_dim', config['emb_dim'] // self.num_heads)
-        self.qk_head_dim = self.qk_rope_head_dim + self.qk_nope_head_dim
-        self.softcap = config.get('softcap', None)
-        
-        attention_bias = config.get('qkv_bias', False)
-        query_pre_attn_scalar = config.get('query_pre_attn_scalar', 1.0)
-        
-        self.is_causal = True
-        if self.q_lora_rank is None:
-            self.q_proj = nn.Linear(config['emb_dim'], self.num_heads * self.qk_head_dim, bias=attention_bias)
-        else:
-            self.q_a_proj = nn.Linear(config['emb_dim'], self.q_lora_rank, bias=False)
-            self.q_b_proj = nn.Linear(self.q_lora_rank, self.num_heads * self.qk_head_dim, bias=attention_bias)
+        self.d_in = d_in
+        self.d_out = d_out
+        self.num_heads = num_heads
+        self.n_kv_heads = n_kv_heads if n_kv_heads is not None else num_heads
+        self.n_kv_groups = self.num_heads // self.n_kv_heads
+        self.head_dim = d_out // num_heads
+        self.v_head_dim = v_head_dim if v_head_dim is not None else self.head_dim
+        self.qk_rope_head_dim = qk_rope_head_dim
+        self.qk_nope_head_dim = qk_nope_head_dim if qk_nope_head_dim is not None else (self.head_dim - qk_rope_head_dim)
+        self.qk_head_dim = self.qk_nope_head_dim + self.qk_rope_head_dim
+        self.q_lora_rank = q_lora_rank if q_lora_rank else 0
+        self.kv_lora_rank = kv_lora_rank if kv_lora_rank is not None else d_in // 2
 
-        self.kv_a_proj_with_mqa = nn.Linear(
-            config['emb_dim'],
-            self.kv_lora_rank + self.qk_rope_head_dim,
-            bias=attention_bias,
-        )
-        self.kv_b_proj = nn.Linear(
+        if self.q_lora_rank == 0:
+            self.w_query = nn.Linear(d_in, self.num_heads * self.qk_head_dim, bias=qkv_bias)
+        else:
+            self.wq_a = nn.Linear(d_in, self.q_lora_rank, bias=False)
+            self.q_norm = RMSNorm(self.q_lora_rank)
+            self.w_query = nn.Linear(self.q_lora_rank, self.num_heads * self.qk_head_dim, bias=qkv_bias)
+
+        self.wkv_a = nn.Linear(d_in, self.kv_lora_rank + self.qk_rope_head_dim, bias=False)
+        self.kv_norm = RMSNorm(self.kv_lora_rank)
+        self.wkv_b = nn.Linear(
             self.kv_lora_rank,
-            self.num_heads * (self.qk_nope_head_dim + self.v_head_dim),
-            bias=attention_bias,
+            self.n_kv_heads * (self.qk_nope_head_dim + self.v_head_dim),
+            bias=qkv_bias
         )
-
-        self.o_proj = nn.Linear(
-            self.num_heads * self.v_head_dim,
-            config['emb_dim'],
-            bias=False,
-        )
-        
-        
-        self.rope = RotaryPositionalEmbeddings(
-            dim=self.qk_rope_head_dim, 
-            max_seq_len=config['max_seq_length']
-        )
-        
-        # Register causal mask
+        self.out_proj = nn.Linear(self.num_heads * self.v_head_dim, d_out, bias=False)
+        self.softmax_scale = self.qk_head_dim ** -0.5
+        self.softcap = softcap
+        self.dropout = nn.Dropout(dropout)
+        self.use_rope = use_rope
+        self.max_seq_len = max_seq_len
+        if use_rope:
+            self.rope = RotaryPositionalEmbeddings(
+                dim=self.qk_rope_head_dim, max_seq_len=max_seq_len
+            )
         self.register_buffer(
-            "mask", torch.triu(torch.ones(config['max_seq_length'], config['max_seq_length']), diagonal=1)
+            "causal_mask", 
+            torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1)
         )
-
-        self.scaling = query_pre_attn_scalar ** (-0.5)
-
-    def forward(self, x):
-        batch_size, seq_length = x.shape[:-1]
-        hidden_states = x
         
-        if self.q_lora_rank is None:
-            q_states = self.q_proj(hidden_states)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size, seq_len, _ = x.shape
+        if self.q_lora_rank == 0:
+            queries = self.w_query(x)
         else:
-            q_states = self.q_b_proj(self.q_a_proj(hidden_states))
-        
-        # [batch, seq, num_heads, head_dim]
-        q_states = q_states.view(batch_size, seq_length, self.num_heads, self.qk_head_dim)
-        q_states = q_states.transpose(1, 2)  # [batch, num_heads, seq, head_dim]
-        q_pass, q_rot = torch.split(q_states, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
-        compressed_kv = self.kv_a_proj_with_mqa(hidden_states)
-        k_pass_compressed, k_rot = torch.split(compressed_kv, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
-        k_pass_expanded = self.kv_b_proj(k_pass_compressed)
-        k_pass_expanded = k_pass_expanded.view(batch_size, seq_length, self.num_heads, self.qk_nope_head_dim + self.v_head_dim)
-        k_pass_expanded = k_pass_expanded.transpose(1, 2)  # [batch, num_heads, seq, head_dim]
-        k_pass, value_states = torch.split(k_pass_expanded, [self.qk_nope_head_dim, self.v_head_dim], dim=-1)
-        k_rot = k_rot.unsqueeze(1).expand(batch_size, self.num_heads, seq_length, self.qk_rope_head_dim)
-        q_rot_reshaped = q_rot.transpose(1, 2)  # [batch, seq, num_heads, rope_dim]
-        k_rot_reshaped = k_rot.transpose(1, 2)  # [batch, seq, num_heads, rope_dim]
-        q_rot_rope = self.rope(q_rot_reshaped).transpose(1, 2)  # [batch, num_heads, seq, rope_dim]
-        k_rot_rope = self.rope(k_rot_reshaped).transpose(1, 2)  # [batch, num_heads, seq, rope_dim
-        query_states = torch.cat((q_pass, q_rot_rope), dim=-1)
-        key_states = torch.cat((k_pass, k_rot_rope), dim=-1)
-        mask_bool = self.mask.to(torch.bool)[:seq_length, :seq_length]
-        attn_output, attn_weights = eager_attention_forward(
-            self,
-            query_states,
-            key_states,
-            value_states,
-            attention_mask=None,
-            dropout=0.0 if not self.training else self.attention_dropout,
-            scaling=self.scaling,
-            softcap=self.softcap,
+            queries = self.w_query(self.q_norm(self.wq_a(x)))
+
+        queries = queries.view(batch_size, seq_len, self.num_heads, self.qk_head_dim)
+        kv = self.wkv_a(x)
+        kv_compressed, k_pe = torch.split(
+            kv,
+            [self.kv_lora_rank, self.qk_rope_head_dim],
+            dim=-1
+        )
+        kv_decompressed = self.wkv_b(self.kv_norm(kv_compressed))
+        kv_decompressed = kv_decompressed.view(
+            batch_size, seq_len, self.n_kv_heads, 
+            self.qk_nope_head_dim + self.v_head_dim
+        )
+        k_nope, values = torch.split(
+            kv_decompressed,
+            [self.qk_nope_head_dim, self.v_head_dim],
+            dim=-1
         )
         
-        attn_output = attn_output.reshape(batch_size, seq_length, -1).contiguous()
-        attn_output = self.o_proj(attn_output)
-        return attn_output
+        k_pe = k_pe.unsqueeze(2).expand(-1, -1, self.n_kv_heads, -1)
     
-    @torch.no_grad()
-    def normalize_matrices(self):
-        """Normalize weight matrices for compatibility with training loop"""
-        self._normalize_matrix(self.o_proj.weight, dim=0)
-        if self.q_lora_rank is None:
-            self._normalize_matrix(self.q_proj.weight)
+        if self.qk_nope_head_dim > 0:
+            q_nope, q_pe = torch.split(
+                queries, 
+                [self.qk_nope_head_dim, self.qk_rope_head_dim], 
+                dim=-1
+            )
+            if self.use_rope:
+                q_pe = self.rope(q_pe.flatten(2)).view(batch_size, seq_len, self.num_heads, self.qk_rope_head_dim)
+                k_pe = self.rope(k_pe.flatten(2)).view(batch_size, seq_len, self.n_kv_heads, self.qk_rope_head_dim)
+
+            queries = torch.cat([q_nope, q_pe], dim=-1)
+            keys = torch.cat([k_nope, k_pe], dim=-1)
         else:
-            self._normalize_matrix(self.q_a_proj.weight)
-            self._normalize_matrix(self.q_b_proj.weight)
-        self._normalize_matrix(self.kv_a_proj_with_mqa.weight)
-        self._normalize_matrix(self.kv_b_proj.weight)
+            q_pe = queries 
+            
+            if self.use_rope:
+                q_pe = self.rope(q_pe.flatten(2)).view(batch_size, seq_len, self.num_heads, self.qk_rope_head_dim)
+                k_pe = self.rope(k_pe.flatten(2)).view(batch_size, seq_len, self.n_kv_heads, self.qk_rope_head_dim)
+            
+            queries = q_pe
+            keys = k_pe
+        
+        queries = queries.transpose(1, 2)  # [batch, num_heads, seq_len, head_dim]
+        keys = keys.transpose(1, 2)        # [batch, n_kv_heads, seq_len, head_dim]
+        values = values.transpose(1, 2)    # [batch, n_kv_heads, seq_len, v_head_dim]
+        
+        if self.n_kv_groups > 1:
+            keys = keys.repeat_interleave(self.n_kv_groups, dim=1)
+            values = values.repeat_interleave(self.n_kv_groups, dim=1)
+        
+        scores = torch.matmul(queries, keys.transpose(2, 3)) * self.softmax_scale
+        
+        if self.softcap is not None:
+            scores = scores / self.softcap
+            scores = torch.tanh(scores)
+            scores = scores * self.softcap
+        
+        mask = self.causal_mask[:seq_len, :seq_len]
+        scores = scores.masked_fill(mask.unsqueeze(0).unsqueeze(0) == 1, float("-inf"))
 
-    @staticmethod
-    def l2_normalize(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
-        return x / torch.linalg.vector_norm(x, dim=dim, keepdim=True).type_as(x)
-
-    def _normalize_matrix(self, w: torch.Tensor, dim: int = -1):
-        w.copy_(self.l2_normalize(w, dim=dim))
+        attn_weights = F.softmax(scores, dim=-1, dtype=torch.float32).to(x.dtype)
+        attn_weights = self.dropout(attn_weights)
+        attn_output = torch.matmul(attn_weights, values)
+        attn_output = attn_output.transpose(1, 2).contiguous()
+        attn_output = attn_output.view(batch_size, seq_len, self.num_heads * self.v_head_dim)
+        output = self.out_proj(attn_output)
+        
+        return output
