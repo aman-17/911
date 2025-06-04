@@ -1,15 +1,20 @@
+import torch
 import torch.nn as nn
 
 from nn.attention.multihead_attention import MultiHeadAttention
-from gpt.nn.attention.native_sparse_attention import NativeSparseAttention
+from nn.attention.native_sparse_attention import NativeSparseAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.ffn import FeedForward
 from nn.norms import LayerNorm
-
+from nn.utils import autocast_precision
 
 class TransformerBlock(nn.Module):
     def __init__(self, cfg):
         super().__init__()
+        n_heads = cfg["n_heads"]
+        n_kv_heads = cfg.get("n_kv_heads", n_heads)
+        if n_heads % n_kv_heads != 0:
+            raise ValueError(f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})")
         if cfg.get("attention", "mha") == "nsa":
             self.att = NativeSparseAttention(
                 d_in=cfg["emb_dim"],
@@ -17,7 +22,8 @@ class TransformerBlock(nn.Module):
                 max_seq_len=cfg["max_seq_length"],
                 num_heads=cfg["n_heads"],
                 dropout=cfg["drop_rate"],
-                n_kv_heads=cfg.get("n_kv_heads", cfg["n_heads"]),
+                dtype=autocast_precision(cfg["dtype"]),
+                n_kv_heads=n_kv_heads,
                 qkv_bias=cfg["qkv_bias"],
                 use_rope=cfg["rope"],
                 compression_block_size=cfg.get("compression_block_size", 16),
@@ -33,7 +39,8 @@ class TransformerBlock(nn.Module):
                 max_seq_len=cfg["max_seq_length"],
                 num_heads=cfg["n_heads"],
                 dropout=cfg["drop_rate"],
-                n_kv_heads=cfg.get("n_kv_heads", cfg["n_heads"]),
+                dtype=autocast_precision(cfg["dtype"]),
+                n_kv_heads=n_kv_heads,
                 qkv_bias=cfg["qkv_bias"],
                 use_rope=cfg["rope"],
                 q_lora_rank=cfg.get("q_lora_rank", None),
@@ -51,13 +58,15 @@ class TransformerBlock(nn.Module):
                 max_seq_len=cfg["max_seq_length"],
                 num_heads=cfg["n_heads"],
                 dropout=cfg["drop_rate"],
+                dtype=autocast_precision(cfg["dtype"]),
                 qkv_bias=cfg["qkv_bias"],
                 use_rope=cfg["rope"],
+                use_flash_attn=cfg.get("use_flash_attn", True),
             )
 
         self.ff = FeedForward(cfg)
-        self.norm1 = LayerNorm(cfg["emb_dim"])
-        self.norm2 = LayerNorm(cfg["emb_dim"])
+        self.norm1 = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
+        self.norm2 = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.drop_resid = nn.Dropout(cfg["drop_rate"])
 
     def forward(self, x):

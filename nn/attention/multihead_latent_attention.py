@@ -93,6 +93,7 @@ class MultiHeadLatentAttention(nn.Module):
         max_seq_len: int,
         num_heads: int,
         dropout: float,
+        dtype: torch.dtype,
         n_kv_heads: Optional[int] = None,
         qkv_bias: bool = False,
         use_rope: bool = True,
@@ -119,20 +120,20 @@ class MultiHeadLatentAttention(nn.Module):
         self.kv_lora_rank = kv_lora_rank if kv_lora_rank is not None else d_in // 2
 
         if self.q_lora_rank == 0:
-            self.w_query = nn.Linear(d_in, self.num_heads * self.qk_head_dim, bias=qkv_bias)
+            self.w_query = nn.Linear(d_in, self.num_heads * self.qk_head_dim, dtype=dtype, bias=qkv_bias)
         else:
-            self.wq_a = nn.Linear(d_in, self.q_lora_rank, bias=False)
-            self.q_norm = RMSNorm(self.q_lora_rank)
-            self.w_query = nn.Linear(self.q_lora_rank, self.num_heads * self.qk_head_dim, bias=qkv_bias)
+            self.wq_a = nn.Linear(d_in, self.q_lora_rank, dtype=dtype, bias=False)
+            self.q_norm = RMSNorm(self.q_lora_rank, dtype=dtype)
+            self.w_query = nn.Linear(self.q_lora_rank, self.num_heads * self.qk_head_dim, dtype=dtype, bias=qkv_bias)
 
-        self.wkv_a = nn.Linear(d_in, self.kv_lora_rank + self.qk_rope_head_dim, bias=False)
-        self.kv_norm = RMSNorm(self.kv_lora_rank)
+        self.wkv_a = nn.Linear(d_in, self.kv_lora_rank + self.qk_rope_head_dim, dtype=dtype, bias=False)
+        self.kv_norm = RMSNorm(self.kv_lora_rank, dtype=dtype)
         self.wkv_b = nn.Linear(
             self.kv_lora_rank,
             self.n_kv_heads * (self.qk_nope_head_dim + self.v_head_dim),
-            bias=qkv_bias
+            dtype=dtype, bias=qkv_bias
         )
-        self.out_proj = nn.Linear(self.num_heads * self.v_head_dim, d_out, bias=False)
+        self.out_proj = nn.Linear(self.num_heads * self.v_head_dim, d_out, dtype=dtype, bias=False)
         self.softmax_scale = self.qk_head_dim ** -0.5
         self.softcap = softcap
         self.dropout = nn.Dropout(dropout)

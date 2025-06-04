@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from nn.utils import autocast_precision
 # from nn.activations import GELU
 
 
@@ -11,10 +11,11 @@ class FeedForward(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.emb_dim = cfg["emb_dim"]
-        self.hidden_dim = 4 * self.emb_dim
-        self.w1 = nn.Linear(self.emb_dim, 4 * self.emb_dim)
-        self.w2 = nn.Linear(4 * self.emb_dim, self.emb_dim)
-        self.w3 = nn.Linear(self.emb_dim, 4 * self.emb_dim)
+        self.hidden_dim = cfg["hidden_dim"] if "hidden_dim" in cfg else 4 * self.emb_dim
+        self.dtype = autocast_precision(cfg["dtype"])
+        self.w1 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
+        self.w2 = nn.Linear(self.hidden_dim, self.emb_dim, dtype=self.dtype)
+        self.w3 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
         # self.layers = nn.Sequential(
         #     nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"]),
         #     GELU(),
@@ -22,6 +23,7 @@ class FeedForward(nn.Module):
         # )
 
     def forward(self, x):
+        x = x.to(self.dtype)
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
@@ -29,10 +31,11 @@ class NormalizedFeedForward(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.emb_dim = cfg["emb_dim"]
-        self.hidden_dim = 4 * self.emb_dim
-        self.w1 = nn.Linear(self.emb_dim, 4 * self.emb_dim)
-        self.w2 = nn.Linear(4 * self.emb_dim, self.emb_dim)
-        self.w3 = nn.Linear(self.emb_dim, 4 * self.emb_dim)
+        self.hidden_dim = cfg["hidden_dim"] if "hidden_dim" in cfg else 4 * self.emb_dim
+        self.dtype = autocast_precision(cfg["dtype"])
+        self.w1 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
+        self.w2 = nn.Linear(self.hidden_dim, self.emb_dim, dtype=self.dtype)
+        self.w3 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
         # self.layers = nn.Sequential(
         #     nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"]),
         #     GELU(),
@@ -40,8 +43,8 @@ class NormalizedFeedForward(nn.Module):
         # )
         self.sw_init_value = 1.0
         self.sw_init_scaling = 1.0
-        self.sw1 = torch.nn.Parameter(torch.empty(self.hidden_dim))
-        self.sw3 = torch.nn.Parameter(torch.empty(self.hidden_dim))
+        self.sw1 = torch.nn.Parameter(torch.empty(self.hidden_dim, dtype=self.dtype))
+        self.sw3 = torch.nn.Parameter(torch.empty(self.hidden_dim, dtype=self.dtype))
         self.sqrt_d_model = math.sqrt(self.emb_dim)
         self.reset_parameters()
 
@@ -53,6 +56,7 @@ class NormalizedFeedForward(nn.Module):
             self.sw3.mul_(self.sw_init_scaling)
 
     def forward(self, x):
+        x = x.to(self.dtype)
         sw1 = self.sw1 * (
             (self.sw_init_value / self.sw_init_scaling) * self.sqrt_d_model
         )

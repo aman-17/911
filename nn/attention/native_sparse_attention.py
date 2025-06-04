@@ -17,6 +17,7 @@ class NativeSparseAttention(nn.Module):
         max_seq_len: int,
         num_heads: int,
         dropout: float,
+        dtype: torch.dtype,
         n_kv_heads: Optional[int] = None,
         qkv_bias: bool = False,
         use_rope: bool = True,
@@ -35,10 +36,10 @@ class NativeSparseAttention(nn.Module):
         self.head_dim = d_out // num_heads
         self.n_kv_heads = n_kv_heads if n_kv_heads is not None else num_heads
         self.num_kv_groups = self.num_heads // self.n_kv_heads
-        self.w_query = nn.Linear(d_in, d_out, bias=qkv_bias)
-        self.w_key = nn.Linear(d_in, self.n_kv_heads * self.head_dim, bias=qkv_bias)
-        self.w_value = nn.Linear(d_in, self.n_kv_heads * self.head_dim, bias=qkv_bias)
-        self.out_proj = nn.Linear(d_out, d_out)
+        self.w_query = nn.Linear(d_in, d_out, dtype=dtype, bias=qkv_bias)
+        self.w_key = nn.Linear(d_in, self.n_kv_heads * self.head_dim, dtype=dtype, bias=qkv_bias)
+        self.w_value = nn.Linear(d_in, self.n_kv_heads * self.head_dim, dtype=dtype, bias=qkv_bias)
+        self.out_proj = nn.Linear(d_out, d_out, dtype=dtype)
         self.dropout = nn.Dropout(dropout)
         self.compression_block_size = compression_block_size
         self.compression_stride = compression_stride
@@ -47,12 +48,12 @@ class NativeSparseAttention(nn.Module):
         self.window_size = window_size
         self.use_causal = use_causal
 
-        self.w_k_compress = nn.Parameter(torch.randn(compression_block_size, 1))
-        self.w_v_compress = nn.Parameter(torch.randn(compression_block_size, 1))
+        self.w_k_compress = nn.Parameter(torch.randn(compression_block_size, 1, dtype=dtype))
+        self.w_v_compress = nn.Parameter(torch.randn(compression_block_size, 1, dtype=dtype))
         self.w_pe_compress = nn.Parameter(
-            torch.randn(compression_block_size, self.n_kv_heads * self.head_dim)
+            torch.randn(compression_block_size, self.n_kv_heads * self.head_dim, dtype=dtype)
         )
-        self.w_gate = nn.Linear(d_in, 3)  # 3 gates= compress,select,window
+        self.w_gate = nn.Linear(d_in, 3, dtype=dtype)  # 3 gates= compress,select,window
         self.use_rope = use_rope
         self.max_seq_len = max_seq_len
         if use_rope:
