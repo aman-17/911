@@ -47,6 +47,8 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
             if isinstance(item, (list, np.ndarray)):
                 self.tokenized_data.append(np.array(item, dtype=np.int32))
             else:
+                if tokenizer is None:
+                    raise ValueError("Tokenizer required fir text data")
                 token_ids = tokenizer.encode(item)
                 self.tokenized_data.append(np.array(token_ids, dtype=np.int32))
 
@@ -79,7 +81,7 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
         for token_seq in data_to_process:
             if len(token_seq) <= self.context_length + 1:
                 print(
-                    f"Token sequence length {len(token_seq)} < than context length {self.context_length}"
+                    f"Token sequence length {len(token_seq)} <than context length {self.context_length}"
                 )
                 continue
 

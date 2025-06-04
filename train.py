@@ -43,6 +43,7 @@ def train_911(
     eval_freq,
     eval_iter,
     start_context,
+    tokenizer,
 ):
     train_losses, track_tokens_seen = [], []
     step_loss = []
@@ -77,7 +78,7 @@ def train_911(
                     }
                 )
                 generate_and_print_sample(
-                    model, train_loader.dataset.tokenizer, start_context
+                    model, tokenizer, start_context  # Use passed tokenizer
                 )
     # if hasattr(model, 'normalize_matrices'):
     #     model.normalize_matrices()
@@ -106,5 +107,6 @@ train_losses, tokens_seen = train_911(
     eval_freq=10,
     eval_iter=50,
     start_context="Tell me about Porsche Speedster",
+    tokenizer=tokenizer,  # Pass tokenizer explicitly
 )
 wandb.finish()

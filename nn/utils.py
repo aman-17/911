@@ -29,7 +29,7 @@ def generate_text_simple(
 
         with torch.no_grad():
             logits = model(idx_cond)
-            logits = logits[:, -1, :]  # Focus on last token
+            logits = logits[:, -1, :]
             probas = torch.softmax(logits, dim=-1)
             idx_next = torch.argmax(probas, dim=-1, keepdim=True)
             idx = torch.cat((idx, idx_next), dim=1)

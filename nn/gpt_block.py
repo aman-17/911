@@ -10,6 +10,7 @@ from nn.transformer_block import TransformerBlock
 class GPTModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
+        self.cfg = cfg
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
         self.pos_emb = nn.Embedding(cfg["max_seq_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
@@ -18,6 +19,18 @@ class GPTModel(nn.Module):
         )
         self.final_norm = LayerNorm(cfg["emb_dim"])
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = 0.02
+            if hasattr(module, 'SCALE_INIT'):
+                std *= (2 * self.cfg["n_layers"]) ** -0.5
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, in_idx):
         batch_size, seq_len = in_idx.shape
@@ -34,6 +47,7 @@ class GPTModel(nn.Module):
 class nGPTModel(nn.Module):
     def __init__(self, cfg):
         super().__init__()
+        self.cfg = cfg
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
         self.pos_emb = nn.Embedding(cfg["max_seq_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
@@ -45,15 +59,24 @@ class nGPTModel(nn.Module):
         self.sz_init_value = 1.0
         self.sz_init_scaling = 1.0 / math.sqrt(cfg["emb_dim"])
         self.sz = nn.Parameter(torch.empty(cfg["vocab_size"]))
+        self.apply(self._init_weights)
         self.reset_parameters()
 
     def reset_parameters(self):
-        """
-        Reset the scaling parameter.
-        """
         nn.init.ones_(self.sz)
         with torch.no_grad():
             self.sz.mul_(self.sz_init_scaling)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = 0.02
+            if hasattr(module, 'SCALE_INIT'):
+                std *= (2 * self.cfg["n_layers"]) ** -0.5
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, in_idx):
         batch_size, seq_len = in_idx.shape

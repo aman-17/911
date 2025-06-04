@@ -1,4 +1,3 @@
-# from: https://github.com/dhcode-cpp/NSA-pytorch/blob/main/native-sparse-attention-pytorch.ipynb
 import math
 from typing import Optional, Tuple
 

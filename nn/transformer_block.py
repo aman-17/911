@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from nn.attention.multihead_attention import MultiHeadAttention
-from nn.attention.nsa import NativeSparseAttention
+from gpt.nn.attention.native_sparse_attention import NativeSparseAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.ffn import FeedForward
 from nn.norms import LayerNorm
@@ -65,7 +65,7 @@ class TransformerBlock(nn.Module):
         x = self.norm1(x)
         x = self.att(x)
         x = self.drop_resid(x)
-        x = x + shortcut  # Add the original input back
+        x = x + shortcut
         shortcut = x
         x = self.norm2(x)
         x = self.ff(x)
