@@ -1,5 +1,9 @@
+import math
 import torch
 import torch.nn as nn
+
+def ensure_multiple_of(x: int, of: int) -> int:
+    return of * math.ceil(x / of)
 
 def autocast_precision(precision) -> torch.dtype:
     if isinstance(precision, torch.dtype):

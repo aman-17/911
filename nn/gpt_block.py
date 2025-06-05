@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from nn.norms import LayerNorm
-from nn.transformer_block import TransformerBlock
+from nn.transfomer.gpt_transformer_block import GPTTransformerBlock
 from nn.utils import autocast_precision
 
 class GPTModel(nn.Module):
@@ -15,7 +15,7 @@ class GPTModel(nn.Module):
         self.pos_emb = nn.Embedding(cfg["max_seq_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
         self.trf_blocks = nn.Sequential(
-            *[TransformerBlock(cfg) for _ in range(cfg["n_layers"])]
+            *[GPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])]
         )
         self.final_norm = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"]))
@@ -52,7 +52,7 @@ class nGPTModel(nn.Module):
         self.pos_emb = nn.Embedding(cfg["max_seq_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
         self.trf_blocks = nn.Sequential(
-            *[TransformerBlock(cfg) for _ in range(cfg["n_layers"])]
+            *[GPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])]
         )
         self.final_norm = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)

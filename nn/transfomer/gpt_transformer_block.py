@@ -8,7 +8,7 @@ from nn.ffn import FeedForward
 from nn.norms import LayerNorm
 from nn.utils import autocast_precision
 
-class TransformerBlock(nn.Module):
+class GPTTransformerBlock(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         n_heads = cfg["n_heads"]

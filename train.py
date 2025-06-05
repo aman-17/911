@@ -4,6 +4,7 @@ import yaml
 import wandb
 from data.dataset_utils import create_train_loader
 from nn.gpt_block import GPTModel, nGPTModel
+from nn.llama_block import LlamaModel
 from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.utils import generate_text_simple
 
@@ -11,7 +12,14 @@ with open("config.yaml") as f:
     train_config = yaml.safe_load(f)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = nGPTModel(train_config)
+
+if train_config["model_arch"] == "gpt":
+    model = GPTModel(train_config)
+elif train_config["model_arch"] == "ngpt":
+    model = nGPTModel(train_config)
+else:
+    model = LlamaModel(train_config)
+
 model.to(device)
 
 wandb.login()
@@ -58,7 +66,7 @@ def train_911(
             wandb.log({"Batch loss": loss.item()})
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
-            model.normalize_matrices()
+            # model.normalize_matrices()
             # lr_scheduler.step()
             step_loss.append(loss.item())
             tokens_seen += input_batch.numel()
