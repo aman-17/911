@@ -38,7 +38,7 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
                 model=model, idx=encoded, max_new_tokens=50, context_size=context_size
             )
             decoded_text = tokenizer.decode(token_ids)  # .squeeze(0).tolist())
-            print(f"[Rank {rank}] Generated: {decoded_text.replace('\n', ' ')}")
+            # print(f"[Rank {rank}] Generated: {decoded_text.replace('\n', ' ')}")
         model.train()
 
 
@@ -134,7 +134,7 @@ def train_911(
             global_step += 1
         if rank == 0:
             avg_epoch_loss = epoch_loss / len(train_loader)
-            print(f"Epoch {epoch+1}/{num_epochs}, Avg Loss: {avg_epoch_loss:.4f}")
+            # print(f"Epoch {epoch+1}/{num_epochs}, Avg Loss: {avg_epoch_loss:.4f}")
             wandb.log({"epoch_loss": avg_epoch_loss, "epoch": epoch})
     
     if rank == 0:
@@ -163,7 +163,7 @@ def main():
         train_config = yaml.safe_load(f)
 
     world_size = torch.cuda.device_count()
-    print(f"Using {world_size} GPUs for training")
+    # print(f"Using {world_size} GPUs for training")
     mp.spawn(
         run_training,
         args=(world_size, train_config),

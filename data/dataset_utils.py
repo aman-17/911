@@ -154,15 +154,15 @@ def create_train_loader(cfg, distributed=True):
         persistent_workers=num_workers > 0,
         sampler=None
     )
-    if rank == 0:
-        print(f"Created DataLoader with batch_size={batch_size}, "
-              f"num_workers={num_workers}, distributed={distributed}")
-        if hasattr(dataset, '__len__'):
-            try:
-                dataset_len = len(dataset)
-                print(f"Dataset length: {dataset_len} samples per rank")
-                # print(f"Steps per epoch: {dataset_len // batch_size}")
-            except:
-                raise Exception("IterableDataset len problem")
+    # if rank == 0:
+    #     print(f"Created DataLoader with batch_size={batch_size}, "
+    #           f"num_workers={num_workers}, distributed={distributed}")
+    #     if hasattr(dataset, '__len__'):
+    #         try:
+    #             dataset_len = len(dataset)
+    #             # print(f"Dataset length: {dataset_len} samples per rank")
+    #             # print(f"Steps per epoch: {dataset_len // batch_size}")
+    #         except:
+    #             raise Exception("IterableDataset len problem")
 
     return train_loader, tokenizer
