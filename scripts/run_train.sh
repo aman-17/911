@@ -14,6 +14,7 @@ commands = []
 commands.extend([
     "git clone https://github.com/aman-17/911.git",
     "cd 911",
+    "pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118",
     "pip install -e .",
     "git checkout parallelism",
     pipeline_cmd,
