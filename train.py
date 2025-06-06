@@ -96,7 +96,8 @@ def train_911(
             
             optimizer.zero_grad()
             loss = calc_loss_batch(input_batch, target_batch, model, device)
-            loss.backward()
+            scaled_loss = loss / world_size
+            scaled_loss.backward()
             if rank == 0:
                 wandb.log({"Batch loss": loss.item(), "global_step": global_step})
 
@@ -121,6 +122,7 @@ def train_911(
                     track_tokens_seen.append(tokens_seen)
                     wandb.log({
                         "global train loss": avg_train_loss,
+                        "scaled batch loss": loss.item() / world_size,
                         "lr": learning_rate_scheduler.get_last_lr()[0],
                         "tokens_seen": tokens_seen,
                         "epoch": epoch,
