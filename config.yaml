@@ -1,10 +1,19 @@
 vocab_size: 50257
 max_seq_length: 2048
+
 model_arch: "llama"
 emb_dim: 768
 n_heads: 12
 n_layers: 12
 hidden_dim: 3072
+
+train_data: edu_fineweb10B
+batch_size: 32
+stride: 1024
+num_workers: 4
+pin_memory: true
+shuffle_buffer_size: 1000
+
 drop_rate: 0.1
 qkv_bias: False
 rope: True
@@ -12,6 +21,7 @@ dtype: fp32
 tie_embeddings: False
 attention: "mha"
 use_flash_attn: True
+
 compression_block_size: 16
 compression_stride: 16
 selection_block_size: 8
@@ -21,9 +31,7 @@ n_kv_heads: 12
 num_epochs: 50
 initial_lr: 0.0001
 weight_decay: 0.1
-train_data: edu_fineweb10B
-batch_size: 4
-stride: 512
+
 q_lora_rank: null
 kv_lora_rank: 384  #emb_dim // 2
 qk_rope_head_dim: 32
