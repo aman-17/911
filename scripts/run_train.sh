@@ -20,7 +20,7 @@ commands.extend([
 ])
 
 task_spec_args = {
-    "name": "OLMo-MLA-Training",
+    "name": "MLA-Training",
     "image": ImageSource(beaker="ai2/cuda11.8-ubuntu20.04"),
     "command": [
         "bash", "-c",
