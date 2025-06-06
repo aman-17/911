@@ -5,7 +5,6 @@ import torch.distributed as dist
 import tiktoken
 from data.data_loader import IterableDatasetTargaV1
 
-
 def load_npy_files_lazy(data_dir, split="train"):
     npy_files = [f for f in os.listdir(data_dir) if f.endswith('.npy') and split in f]
     npy_files.sort()
@@ -22,13 +21,13 @@ def load_npy_data_generator(file_paths):
         yield data
 
 
-def create_train_loader(cfg, distributed=False):
+def create_train_loader(cfg, distributed=True):
     data_path = cfg["train_data"]
     batch_size = cfg.get("batch_size", 4)
     max_length = cfg["max_seq_length"]
     stride = cfg.get("stride", max_length // 2)
     num_workers = cfg.get("num_workers", 0)
-    pin_memory = cfg.get("pin_memory", False)
+    pin_memory = cfg.get("pin_memory", True)
     shuffle_buffer_size = cfg.get("shuffle_buffer_size", 500)
 
     tokenizer = tiktoken.get_encoding("gpt2")
@@ -153,6 +152,7 @@ def create_train_loader(cfg, distributed=False):
         pin_memory=pin_memory,
         drop_last=True,
         persistent_workers=num_workers > 0,
+        sampler=None
     )
     if rank == 0:
         print(f"Created DataLoader with batch_size={batch_size}, "
@@ -161,8 +161,8 @@ def create_train_loader(cfg, distributed=False):
             try:
                 dataset_len = len(dataset)
                 print(f"Dataset length: {dataset_len} samples per rank")
-                print(f"Steps per epoch: {dataset_len // batch_size}")
+                # print(f"Steps per epoch: {dataset_len // batch_size}")
             except:
-                print("Dataset length: Unknown (IterableDataset)")
-    
+                raise Exception("IterableDataset len problem")
+
     return train_loader, tokenizer

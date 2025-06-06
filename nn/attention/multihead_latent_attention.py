@@ -182,8 +182,8 @@ class MultiHeadLatentAttention(nn.Module):
                 dim=-1
             )
             if self.use_rope:
-                q_pe = self.rope(q_pe.flatten(2)).view(batch_size, seq_len, self.num_heads, self.qk_rope_head_dim)
-                k_pe = self.rope(k_pe.flatten(2)).view(batch_size, seq_len, self.n_kv_heads, self.qk_rope_head_dim)
+                q_pe = self.rope(q_pe)
+                k_pe = self.rope(k_pe)
 
             queries = torch.cat([q_nope, q_pe], dim=-1)
             keys = torch.cat([k_nope, k_pe], dim=-1)
@@ -191,8 +191,8 @@ class MultiHeadLatentAttention(nn.Module):
             q_pe = queries 
             
             if self.use_rope:
-                q_pe = self.rope(q_pe.flatten(2)).view(batch_size, seq_len, self.num_heads, self.qk_rope_head_dim)
-                k_pe = self.rope(k_pe.flatten(2)).view(batch_size, seq_len, self.n_kv_heads, self.qk_rope_head_dim)
+                q_pe = self.rope(q_pe)
+                k_pe = self.rope(k_pe)
             
             queries = q_pe
             keys = k_pe

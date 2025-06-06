@@ -6,7 +6,6 @@ import wandb
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
 
 from data.dataset_utils import create_train_loader
 from nn.gpt_block import GPTModel, nGPTModel
@@ -32,13 +31,13 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
         base_model = model.module if hasattr(model, 'module') else model
         context_size = base_model.pos_emb.weight.shape[0]
         encoded = tokenizer.encode(start_context)
-        encoded = torch.tensor(encoded, dtype=torch.long, device=device).unsqueeze(0)
+        encoded = torch.tensor(encoded, dtype=torch.long, device=device) # .unsqueeze(0)
         
         with torch.no_grad():
             token_ids = generate_text_simple(
                 model=model, idx=encoded, max_new_tokens=50, context_size=context_size
             )
-            decoded_text = tokenizer.decode(token_ids.squeeze(0).tolist())
+            decoded_text = tokenizer.decode(token_ids)  # .squeeze(0).tolist())
             print(f"[Rank {rank}] Generated: {decoded_text.replace('\n', ' ')}")
         model.train()
 

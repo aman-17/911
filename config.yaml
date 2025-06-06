@@ -8,9 +8,9 @@ n_layers: 12
 hidden_dim: 3072
 
 train_data: edu_fineweb10B
-batch_size: 32
+batch_size: 4
 stride: 1024
-num_workers: 4
+num_workers: 1
 pin_memory: true
 shuffle_buffer_size: 1000
 
@@ -19,7 +19,7 @@ qkv_bias: False
 rope: True
 dtype: fp32
 tie_embeddings: False
-attention: "mha"
+attention: "mla"
 use_flash_attn: True
 
 compression_block_size: 16
