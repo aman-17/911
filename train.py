@@ -16,7 +16,7 @@ from nn.utils import generate_text_simple
 
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '29500'
+    os.environ['MASTER_PORT'] = '29501'
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
@@ -38,7 +38,7 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
                 model=model, idx=encoded, max_new_tokens=50, context_size=context_size
             )
             decoded_text = tokenizer.decode(token_ids)  # .squeeze(0).tolist())
-            # print(f"[Rank {rank}] Generated: {decoded_text.replace('\n', ' ')}")
+            print(f"[Rank {rank}] Generated: {decoded_text.replace('\n', ' ')}")
         model.train()
 
 
@@ -154,7 +154,7 @@ def run_training(rank, world_size, train_config):
         num_epochs=train_config["num_epochs"],
         eval_freq=10,
         eval_iter=50,
-        start_context="Tell me about Porsche Speedster",
+        start_context="The Bowmanstown Borough Authority was incorporated August 24, 1997 and",
     )
 
 
