@@ -8,7 +8,7 @@ n_layers: 16
 hidden_dim: 3072
 
 train_data: edu_fineweb10B
-batch_size: 4
+batch_size: 6
 stride: 1024
 num_workers: 1
 pin_memory: true
