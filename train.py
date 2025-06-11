@@ -38,7 +38,7 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
                 model=model, idx=encoded, max_new_tokens=50, context_size=context_size
             )
             decoded_text = tokenizer.decode(token_ids)  # .squeeze(0).tolist())
-            print(f"[Rank {rank}] Generated: {decoded_text.replace('\n', ' ')}")
+            # print(f"[Rank {rank}] Generated: {decoded_text.replace('\n', ' ')}")
         model.train()
 
 
