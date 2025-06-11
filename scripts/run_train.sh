@@ -21,7 +21,7 @@ commands.extend([
 ])
 
 task_spec_args = {
-    "name": "MLA-Training",
+    "name": "train",
     "image": ImageSource(beaker="ai2/cuda11.8-ubuntu20.04"),
     "command": [
         "bash", "-c",
@@ -36,13 +36,13 @@ task_spec_args = {
         priority=Priority.normal,
         preemptible=True,
     ),
-    "resources": TaskResources(gpu_count=2),
-    "constraints": Constraints(cluster=["ai2/titan-cirrascale","ai2/ceres-cirrascale", "ai2/jupiter-cirrascale-2"]),
+    "resources": TaskResources(gpu_count=8),
+    "constraints": Constraints(cluster=["ai2/jupiter-cirrascale-2"]),
     "result": ResultSpec(path="/noop-results"),
 }
 
 experiment_spec = ExperimentSpec(
-    description=f"MLA test on OLMo",
+    description=f"train",
     budget="ai2/oe-training",
     tasks=[TaskSpec(**task_spec_args)],
 )
