@@ -27,11 +27,11 @@ task_spec_args = {
         "bash", "-c",
         " && ".join(commands)
     ],
-    "env_vars": [
-        EnvVar(name="NCCL_SOCKET_IFNAME", value="ib"),
-        EnvVar(name="NCCL_IB_HCA", value="^=mlx5_bond_0"),
-        EnvVar(name="NCCL_DEBUG", value="INFO"),
-    ],
+    # "env_vars": [
+    #     EnvVar(name="NCCL_SOCKET_IFNAME", value="ib"),
+    #     EnvVar(name="NCCL_IB_HCA", value="^=mlx5_bond_0"),
+    #     EnvVar(name="NCCL_DEBUG", value="INFO"),
+    # ],
     "context": TaskContext(
         priority=Priority.normal,
         preemptible=True,
