@@ -1,6 +1,6 @@
 # from https://github.com/pytorch/torchtune/blob/main/torchtune/modules/position_embeddings.py
 
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -117,3 +117,124 @@ class RotaryPositionalEmbeddings(nn.Module):
         x_out = x_out.flatten(3)
         # print(x_out)
         return x_out.type_as(x)
+
+
+class ComplexRotaryEmbedding(nn.Module):
+    """
+    An implementation of `RoPE <https://arxiv.org/abs/2104.09864>`_ as a rotation in complex space.
+
+    :param head_size: The dimensionality of the attention heads.
+    :param theta: The theta base value to use.
+    :param full_precision: Always apply RoPE in full precision regardless of the input data type.
+    """
+
+    def __init__(
+        self,
+        *,
+        head_size: int,
+        theta: int = 500_000,
+        full_precision: bool = True,
+    ):
+        super().__init__(
+            head_size=head_size,
+            theta=theta,
+            full_precision=full_precision,
+        )
+
+    def warmup_cache(self, max_seq_len: int, device: torch.device):
+        self._get_rotary_embedding(max_seq_len, device)
+
+    def get_buffers(self, max_seq_len: int, device: torch.device):
+        freqs_cis = self._get_rotary_embedding(max_seq_len, device)
+        return freqs_cis
+
+    def _get_rotary_embedding(self, seq_len: int, device: torch.device) -> torch.Tensor:
+        if (freqs_cis := self._cache.get("rope_freqs_cis")) is not None and freqs_cis.shape[
+            -2
+        ] >= seq_len:
+            if freqs_cis.device != device:
+                freqs_cis = freqs_cis.to(device)
+                self._cache["rope_freqs_cis"] = freqs_cis
+            return freqs_cis[:seq_len, :]
+
+        with torch.autocast(device.type, enabled=False):
+            inv_freq = 1.0 / (
+                self.theta
+                ** (
+                    torch.arange(0, self.dim, 2, device=device, dtype=torch.float)[
+                        : (self.dim // 2)
+                    ]
+                    / self.dim
+                )
+            )
+            seq = torch.arange(seq_len, device=device, dtype=torch.float)
+            freqs = torch.einsum("i , j -> i j", seq, inv_freq)
+            freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
+        self._cache["rope_freqs_cis"] = freqs_cis
+        return freqs_cis
+
+    def _apply_rotary_pos_emb(self, freqs_cis: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        return torch.view_as_real(x * freqs_cis).flatten(3)
+
+    def forward(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        head_first: bool = True,
+        pos_sin: Optional[torch.Tensor] = None,
+        pos_cos: Optional[torch.Tensor] = None,
+        freqs_cis: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Apply RoPE to query (``q``) and key (``k``) matrices.
+
+        :param q: The query matrix of shape ``(batch_size, num_heads, seq_len, head_size)``
+            if ``head_first`` (the default) otherwise ``(batch_size, seq_len, num_heads, head_size)``.
+        :param k: The key matrix of shape ``(batch_size, num_kv_heads, seq_len, head_size)``
+            if ``head_first`` (the default) otherwise
+            ``(batch_size, seq_len, num_kv_heads, head_size)``.
+        :param head_first: If the head dim comes before the sequence dim.
+
+        :returns: The query and key matrices after RoPE has been applied.
+        """
+        if pos_sin is not None or pos_cos is not None:
+            raise RuntimeError(f"'pos_sin' and 'pos_cos' are invalid for {self.__class__.__name__}")
+
+        if head_first:
+            q_len = q.size(2)
+            k_len = k.size(2)
+        else:
+            q_len = q.size(1)
+            k_len = k.size(1)
+
+        if self.full_precision:
+            q_, k_ = q.float(), k.float()
+        else:
+            q_, k_ = q, k
+
+        # shape (complex64):
+        #  (B, nh, T, hs // 2), (B, n_kv_h, T, hs // 2) if `head_first`, else
+        #  (B, T, nh, hs // 2), (B, T, n_kv_h, hs // 2)
+        q_ = torch.view_as_complex(q_.reshape(*q_.shape[:-1], -1, 2))
+        k_ = torch.view_as_complex(k_.reshape(*k_.shape[:-1], -1, 2))
+
+        with torch.autocast(q.device.type, enabled=False):
+            # shape: (T, hs // 2)
+            if freqs_cis is None:
+                freqs_cis = self._get_rotary_embedding(k_len, q_.device)
+            if head_first:
+                # shape: (1, 1, T, hs // 2)
+                q_ = self._apply_rotary_pos_emb(
+                    freqs_cis[None, None, k_len - q_len : k_len, :],
+                    q_,
+                )
+                k_ = self._apply_rotary_pos_emb(freqs_cis[None, None, :, :], k_)
+            else:
+                # shape: (1, T, 1, hs // 2)
+                q_ = self._apply_rotary_pos_emb(
+                    freqs_cis[None, k_len - q_len : k_len, None, :],
+                    q_,
+                )
+                k_ = self._apply_rotary_pos_emb(freqs_cis[None, :, None, :], k_)
+
+        return q_.type_as(q), k_.type_as(k)
