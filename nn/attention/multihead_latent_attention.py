@@ -14,117 +14,33 @@ def rotate_half(x: torch.Tensor) -> torch.Tensor:
     return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_rotary_emb(
-    x: torch.Tensor, 
-    freqs_cis: torch.Tensor,
-    dtype: Optional[torch.dtype] = None
-) -> torch.Tensor:
+def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
     """
-    Apply rotary embeddings to input tensor using complex number multiplication.
-    
-    Args:
-        x: Input tensor of shape [batch_size, seq_len, n_heads, head_dim]
-        freqs_cis: Precomputed frequency tensor (complex)
-        dtype: Output dtype
-        
-    Returns:
-        Tensor with rotary embeddings applied
+    Applies rotary positional embeddings to the input tensor.
+    Fixed to match official implementation more closely.
     """
-    x_reshape = x.float().reshape(*x.shape[:-1], -1, 2)
-    x_complex = torch.view_as_complex(x_reshape)
+    dtype = x.dtype
+    # Ensure x has even dimensions for complex view
+    if x.size(-1) % 2 != 0:
+        raise ValueError(f"Last dimension must be even, got {x.size(-1)}")
     
-    freqs_cis = freqs_cis.unsqueeze(2) if x.dim() == 4 else freqs_cis
-    x_rotated = x_complex * freqs_cis
+    x = torch.view_as_complex(x.float().view(*x.shape[:-1], -1, 2))
     
-    x_out = torch.view_as_real(x_rotated)
-    x_out = x_out.reshape(*x.shape)
+    # Adjust freqs_cis shape to match x
+    if len(freqs_cis.shape) == 2:  # [seq_len, dim//2]
+        freqs_cis = freqs_cis.view(1, freqs_cis.size(0), 1, freqs_cis.size(1))
+    elif len(freqs_cis.shape) == 4:  # Already in correct shape
+        pass
+    else:
+        raise ValueError(f"Unexpected freqs_cis shape: {freqs_cis.shape}")
     
-    return x_out.to(dtype if dtype is not None else x.dtype)
-
-
-def precompute_freqs_cis(
-    dim: int,
-    max_seq_len: int,
-    seq_len:int,
-    beta_fast: int,
-    beta_slow: int,
-    theta: float = 10000.0,
-    rope_factor: float = 1.0
-) -> torch.Tensor:
-    """
-    Precompute the frequency tensor for rotary embeddings.
+    # Ensure freqs_cis matches x dimensions
+    if freqs_cis.size(-1) != x.size(-1):
+        # Take only the needed dimensions
+        freqs_cis = freqs_cis[..., :x.size(-1)]
     
-    Args:
-        dim: Dimension of the embeddings
-        max_seq_len: Maximum sequence length
-        theta: Base for the frequency calculation
-        rope_factor: Scaling factor for RoPE
-        
-    Returns:
-        Complex tensor with precomputed frequencies
-    """
-    def find_correction_dim(num_rotations, dim, base, max_seq_len):
-        """
-        Computes the correction dimension for a given number of rotations in the rotary positional embedding.
-
-        Args:
-            num_rotations (float): Number of rotations to compute the correction for.
-            dim (int): Dimensionality of the embedding space.
-            base (float): Base value for the exponential computation.
-            max_seq_len (int): Maximum sequence length.
-
-        Returns:
-            float: The correction dimension based on the input parameters.
-        """
-        return dim * math.log(max_seq_len / (num_rotations * 2 * math.pi)) / (2 * math.log(base))
-    
-    def find_correction_range(low_rot, high_rot, dim, base, max_seq_len):
-        """
-        Computes the range of correction dimensions for rotary positional embeddings.
-
-        Args:
-            low_rot (float): Lower bound for the number of rotations.
-            high_rot (float): Upper bound for the number of rotations.
-            dim (int): Dimensionality of the embedding space.
-            base (float): Base value for the exponential computation.
-            max_seq_len (int): Maximum sequence length.
-
-        Returns:
-            Tuple[int, int]: The range of correction dimensions (low, high), clamped to valid indices.
-        """
-        low = math.floor(find_correction_dim(low_rot, dim, base, max_seq_len))
-        high = math.ceil(find_correction_dim(high_rot, dim, base, max_seq_len))
-        return max(low, 0), min(high, dim-1)
-    
-    def linear_ramp_factor(min, max, dim):
-        """
-        Computes a linear ramp function used to smooth values between a minimum and maximum range.
-
-        Args:
-            min (float): Minimum value for the ramp function.
-            max (float): Maximum value for the ramp function.
-            dim (int): Dimensionality of the ramp tensor.
-
-        Returns:
-            torch.Tensor: A tensor of shape (dim,) with values linearly interpolated between 0 and 1,
-                clamped to the range [0, 1].
-        """
-        if min == max:
-            max += 0.001
-        linear_func = (torch.arange(dim, dtype=torch.float32) - min) / (max - min)
-        ramp_func = torch.clamp(linear_func, 0, 1)
-        return ramp_func
-    
-    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim))
-    if seq_len > max_seq_len:
-        low, high = find_correction_range(beta_fast, beta_slow, dim, theta, max_seq_len)
-        smooth = 1 - linear_ramp_factor(low, high, dim // 2)
-        freqs = freqs / rope_factor * (1 - smooth) + freqs * smooth
-
-    t = torch.arange(seq_len)
-    freqs = torch.outer(t, freqs)
-    freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
-    return freqs_cis
+    y = torch.view_as_real(x * freqs_cis).flatten(3)
+    return y.to(dtype)
 
 
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
@@ -150,7 +66,6 @@ class MultiHeadLatentAttention(nn.Module):
         original_seq_len: int,
         num_heads: int,
         batch_size: int,
-        dropout: float,
         dtype: torch.dtype,
         n_kv_heads: Optional[int] = None,
         qkv_bias: bool = False,
@@ -170,7 +85,11 @@ class MultiHeadLatentAttention(nn.Module):
         self.d_in = d_in
         self.d_out = d_out
         self.num_heads = num_heads
-        self.n_local_heads = num_heads // torch.distributed.get_world_size()
+        # Fix: Handle distributed properly - get world_size safely
+        world_size = 1
+        if torch.distributed.is_initialized():
+            world_size = torch.distributed.get_world_size()
+        self.n_local_heads = num_heads // world_size
         self.n_kv_heads = n_kv_heads if n_kv_heads is not None else num_heads
         self.n_kv_groups = self.num_heads // self.n_kv_heads
         self.head_dim = d_out // num_heads
@@ -226,12 +145,17 @@ class MultiHeadLatentAttention(nn.Module):
         
     def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
         batch_size, seq_len, _ = x.shape
+        print(f"MLA Forward - Input shape: {x.shape}, expected seq_len: {seq_len}")
+        
         end_pos = start_pos + seq_len
         if self.q_lora_rank == 0:
             q = self.wq(x)
         else:
-            q = self.wq(self.q_norm(self.wq_a(x)))
+            q = self.wq_b(self.q_norm(self.wq_a(x)))
 
+        print(f"MLA Forward - Q shape after projection: {q.shape}")
+        print(f"MLA Forward - Reshaping to: [{batch_size}, {seq_len}, {self.n_local_heads}, {self.qk_head_dim}]")
+        
         q = q.view(batch_size, seq_len, self.n_local_heads, self.qk_head_dim)
         q_nope, q_pe = torch.split(q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
         q_pe = apply_rotary_emb(q_pe, freqs_cis)

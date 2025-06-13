@@ -44,7 +44,7 @@ def create_train_loader(cfg, distributed=True):
         
         if npy_files:
             file_paths = load_npy_files_lazy(data_path, split="train")
-            # file_paths = file_paths[:min(10, len(file_paths))]
+            file_paths = file_paths[:min(10, len(file_paths))]
             if distributed and world_size > 1:
                 files_per_rank = len(file_paths) // world_size
                 start_idx = rank * files_per_rank
