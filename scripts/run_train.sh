@@ -21,28 +21,28 @@ commands.extend([
 ])
 
 task_spec_args = {
-    "name": "MLA-Training",
+    "name": "train",
     "image": ImageSource(beaker="ai2/cuda11.8-ubuntu20.04"),
     "command": [
         "bash", "-c",
         " && ".join(commands)
     ],
-    "env_vars": [
-        EnvVar(name="NCCL_SOCKET_IFNAME", value="ib"),
-        EnvVar(name="NCCL_IB_HCA", value="^=mlx5_bond_0"),
-        EnvVar(name="NCCL_DEBUG", value="INFO"),
-    ],
+    # "env_vars": [
+    #     EnvVar(name="NCCL_SOCKET_IFNAME", value="ib"),
+    #     EnvVar(name="NCCL_IB_HCA", value="^=mlx5_bond_0"),
+    #     EnvVar(name="NCCL_DEBUG", value="INFO"),
+    # ],
     "context": TaskContext(
         priority=Priority.normal,
         preemptible=True,
     ),
-    "resources": TaskResources(gpu_count=2),
-    "constraints": Constraints(cluster=["ai2/titan-cirrascale","ai2/ceres-cirrascale", "ai2/jupiter-cirrascale-2"]),
+    "resources": TaskResources(gpu_count=8),
+    "constraints": Constraints(cluster=["ai2/jupiter-cirrascale-2"]),
     "result": ResultSpec(path="/noop-results"),
 }
 
 experiment_spec = ExperimentSpec(
-    description=f"MLA test on OLMo",
+    description=f"train",
     budget="ai2/oe-training",
     tasks=[TaskSpec(**task_spec_args)],
 )

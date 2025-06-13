@@ -63,7 +63,7 @@ def train_911(
     model = model.to(device)
     model = DDP(model, device_ids=[rank], output_device=rank)
     if rank == 0:
-        wandb.login(key='2f96fc15e9f5e6b7efb674252b17a406a47121c9')
+        wandb.login(key=os.getenv("WANDB_API_KEY"))
         run = wandb.init(project="911-training", config=train_config)
     
     train_loader, tokenizer = create_train_loader(train_config)
