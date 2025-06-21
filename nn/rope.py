@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 from torch import nn
@@ -148,9 +148,9 @@ class ComplexRotaryEmbedding(nn.Module):
         return freqs_cis
 
     def _get_rotary_embedding(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        if (freqs_cis := self._cache.get("rope_freqs_cis")) is not None and freqs_cis.shape[
-            -2
-        ] >= seq_len:
+        if (
+            freqs_cis := self._cache.get("rope_freqs_cis")
+        ) is not None and freqs_cis.shape[-2] >= seq_len:
             if freqs_cis.device != device:
                 freqs_cis = freqs_cis.to(device)
                 self._cache["rope_freqs_cis"] = freqs_cis
@@ -172,7 +172,9 @@ class ComplexRotaryEmbedding(nn.Module):
         self._cache["rope_freqs_cis"] = freqs_cis
         return freqs_cis
 
-    def _apply_rotary_pos_emb(self, freqs_cis: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+    def _apply_rotary_pos_emb(
+        self, freqs_cis: torch.Tensor, x: torch.Tensor
+    ) -> torch.Tensor:
         return torch.view_as_real(x * freqs_cis).flatten(3)
 
     def forward(
@@ -197,7 +199,9 @@ class ComplexRotaryEmbedding(nn.Module):
         :returns: The query and key matrices after RoPE has been applied.
         """
         if pos_sin is not None or pos_cos is not None:
-            raise RuntimeError(f"'pos_sin' and 'pos_cos' are invalid for {self.__class__.__name__}")
+            raise RuntimeError(
+                f"'pos_sin' and 'pos_cos' are invalid for {self.__class__.__name__}"
+            )
 
         if head_first:
             q_len = q.size(2)
@@ -287,34 +291,46 @@ class YaRNRotaryEmbedding(nn.Module):
         x2 = x[..., x.shape[-1] // 2 :]
         return torch.cat((-x2, x1), dim=-1)
 
-    def _find_correction_dim(self, num_rotations: float, dim: int, base: float, max_seq_len: int) -> float:
+    def _find_correction_dim(
+        self, num_rotations: float, dim: int, base: float, max_seq_len: int
+    ) -> float:
         """
         Computes the correction dimension for a given number of rotations.
         """
-        return dim * math.log(max_seq_len / (num_rotations * 2 * math.pi)) / (2 * math.log(base))
-    
-    def _find_correction_range(self, low_rot: float, high_rot: float, dim: int, base: float, max_seq_len: int) -> Tuple[int, int]:
+        return (
+            dim
+            * math.log(max_seq_len / (num_rotations * 2 * math.pi))
+            / (2 * math.log(base))
+        )
+
+    def _find_correction_range(
+        self, low_rot: float, high_rot: float, dim: int, base: float, max_seq_len: int
+    ) -> Tuple[int, int]:
         """
         Computes the range of correction dimensions for rotary positional embeddings.
         """
         low = math.floor(self._find_correction_dim(low_rot, dim, base, max_seq_len))
         high = math.ceil(self._find_correction_dim(high_rot, dim, base, max_seq_len))
-        return max(low, 0), min(high, dim-1)
-    
-    def _linear_ramp_factor(self, min_val: float, max_val: float, dim: int, device: torch.device) -> torch.Tensor:
+        return max(low, 0), min(high, dim - 1)
+
+    def _linear_ramp_factor(
+        self, min_val: float, max_val: float, dim: int, device: torch.device
+    ) -> torch.Tensor:
         """
         Computes a linear ramp function used to smooth values between a minimum and maximum range.
         """
         if min_val == max_val:
             max_val += 0.001
-        linear_func = (torch.arange(dim, dtype=torch.float32, device=device) - min_val) / (max_val - min_val)
+        linear_func = (
+            torch.arange(dim, dtype=torch.float32, device=device) - min_val
+        ) / (max_val - min_val)
         ramp_func = torch.clamp(linear_func, 0, 1)
         return ramp_func
 
     def _get_rotary_embedding(self, seq_len: int, device: torch.device) -> torch.Tensor:
-        if (freqs_cis := self._cache.get("rope_freqs_cis")) is not None and freqs_cis.shape[
-            -2
-        ] >= seq_len:
+        if (
+            freqs_cis := self._cache.get("rope_freqs_cis")
+        ) is not None and freqs_cis.shape[-2] >= seq_len:
             if freqs_cis.device != device:
                 freqs_cis = freqs_cis.to(device)
                 self._cache["rope_freqs_cis"] = freqs_cis
@@ -330,22 +346,31 @@ class YaRNRotaryEmbedding(nn.Module):
                     / self.dim
                 )
             )
-            
+
             if seq_len > self.max_seq_len:
                 low, high = self._find_correction_range(
-                    self.beta_fast, self.beta_slow, self.dim, self.theta, self.max_seq_len
+                    self.beta_fast,
+                    self.beta_slow,
+                    self.dim,
+                    self.theta,
+                    self.max_seq_len,
                 )
                 smooth = 1 - self._linear_ramp_factor(low, high, self.dim // 2, device)
-                inv_freq = inv_freq * self.rope_factor * (1 - smooth) + inv_freq / self.rope_factor * smooth
-            
+                inv_freq = (
+                    inv_freq * self.rope_factor * (1 - smooth)
+                    + inv_freq / self.rope_factor * smooth
+                )
+
             seq = torch.arange(seq_len, device=device, dtype=torch.float)
             freqs = torch.einsum("i , j -> i j", seq, inv_freq)
             freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
-            
+
         self._cache["rope_freqs_cis"] = freqs_cis
         return freqs_cis
 
-    def _apply_rotary_pos_emb(self, freqs_cis: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+    def _apply_rotary_pos_emb(
+        self, freqs_cis: torch.Tensor, x: torch.Tensor
+    ) -> torch.Tensor:
         return torch.view_as_real(x * freqs_cis).flatten(3)
 
     def forward(
@@ -370,7 +395,9 @@ class YaRNRotaryEmbedding(nn.Module):
         :returns: The query and key matrices after RoPE has been applied.
         """
         if pos_sin is not None or pos_cos is not None:
-            raise RuntimeError(f"'pos_sin' and 'pos_cos' are invalid for {self.__class__.__name__}")
+            raise RuntimeError(
+                f"'pos_sin' and 'pos_cos' are invalid for {self.__class__.__name__}"
+            )
 
         if head_first:
             q_len = q.size(2)
@@ -408,7 +435,6 @@ class YaRNRotaryEmbedding(nn.Module):
                 k_ = self._apply_rotary_pos_emb(freqs_cis[None, :, None, :], k_)
 
         return q_.type_as(q), k_.type_as(k)
-
 
 
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:

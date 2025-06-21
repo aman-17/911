@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 
+from nn.attention.utils import precompute_freqs_cis
 from nn.norms import RMSNorm
 from nn.transfomer.llama_transformer_block import LlamaTransformerBlock
 from nn.utils import autocast_precision, ensure_multiple_of
-from nn.attention.utils import precompute_freqs_cis
+
 
 class LlamaModel(nn.Module):
     def __init__(self, cfg):
@@ -16,21 +17,37 @@ class LlamaModel(nn.Module):
         hidden_size = int(8 * cfg["emb_dim"] / 3)
         if cfg.get("hidden_size_multiplier") is not None:
             hidden_size = int(cfg["hidden_size_multiplier"] * hidden_size)
-        hidden_size = ensure_multiple_of(hidden_size, cfg.get("hidden_size_multiple_of", 256))
-        self.trf_blocks = nn.Sequential(
-            *[LlamaTransformerBlock({**cfg, "block_idx": i, "hidden_size": hidden_size}) 
-              for i in range(cfg["n_layers"])]
+        hidden_size = ensure_multiple_of(
+            hidden_size, cfg.get("hidden_size_multiple_of", 256)
         )
-        self.final_norm = RMSNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
+        self.trf_blocks = nn.Sequential(
+            *[
+                LlamaTransformerBlock(
+                    {**cfg, "block_idx": i, "hidden_size": hidden_size}
+                )
+                for i in range(cfg["n_layers"])
+            ]
+        )
+        self.final_norm = RMSNorm(
+            cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"])
+        )
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
-        
+
         if cfg.get("attention", "mha") == "mla":
             self.register_buffer(
-                "freqs_cis", 
-                precompute_freqs_cis(cfg["emb_dim"], cfg["max_seq_length"], cfg["seq_length"], cfg["beta_fast"], cfg["beta_slow"], cfg["rope_factor"], cfg["rope_theta"]), 
-                persistent=False
+                "freqs_cis",
+                precompute_freqs_cis(
+                    cfg["emb_dim"],
+                    cfg["max_seq_length"],
+                    cfg["seq_length"],
+                    cfg["beta_fast"],
+                    cfg["beta_slow"],
+                    cfg["rope_factor"],
+                    cfg["rope_theta"],
+                ),
+                persistent=False,
             )
-        
+
         self.apply(self._init_weights)
         if cfg.get("tie_embeddings", True):
             self.out_head.weight = self.tok_emb.weight
@@ -49,23 +66,20 @@ class LlamaModel(nn.Module):
         pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))
         x = tok_embeds + pos_embeds
         x = self.drop_emb(x)
-        
+
         if self.cfg.get("attention", "mha") == "mla":
-            freqs_cis = self.freqs_cis[start_pos:start_pos+seq_len]
+            freqs_cis = self.freqs_cis[start_pos : start_pos + seq_len]
             mask = None
             if seq_len > 1:
-                mask = torch.full((seq_len, seq_len), float("-inf"), device=in_idx.device).triu_(1)
+                mask = torch.full(
+                    (seq_len, seq_len), float("-inf"), device=in_idx.device
+                ).triu_(1)
             for block in self.trf_blocks:
                 x = block(x, start_pos, freqs_cis, mask)
         else:
             for block in self.trf_blocks:
                 x = block(x)
-                
+
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits
-
-
-
-
-

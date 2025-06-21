@@ -9,7 +9,6 @@ from nn.rope import RotaryPositionalEmbeddings
 
 
 class NativeSparseAttention(nn.Module):
-
     def __init__(
         self,
         d_in: int,
@@ -37,8 +36,12 @@ class NativeSparseAttention(nn.Module):
         self.n_kv_heads = n_kv_heads if n_kv_heads is not None else num_heads
         self.num_kv_groups = self.num_heads // self.n_kv_heads
         self.w_query = nn.Linear(d_in, d_out, dtype=dtype, bias=qkv_bias)
-        self.w_key = nn.Linear(d_in, self.n_kv_heads * self.head_dim, dtype=dtype, bias=qkv_bias)
-        self.w_value = nn.Linear(d_in, self.n_kv_heads * self.head_dim, dtype=dtype, bias=qkv_bias)
+        self.w_key = nn.Linear(
+            d_in, self.n_kv_heads * self.head_dim, dtype=dtype, bias=qkv_bias
+        )
+        self.w_value = nn.Linear(
+            d_in, self.n_kv_heads * self.head_dim, dtype=dtype, bias=qkv_bias
+        )
         self.out_proj = nn.Linear(d_out, d_out, dtype=dtype)
         self.dropout = nn.Dropout(dropout)
         self.compression_block_size = compression_block_size
@@ -48,10 +51,16 @@ class NativeSparseAttention(nn.Module):
         self.window_size = window_size
         self.use_causal = use_causal
 
-        self.w_k_compress = nn.Parameter(torch.randn(compression_block_size, 1, dtype=dtype))
-        self.w_v_compress = nn.Parameter(torch.randn(compression_block_size, 1, dtype=dtype))
+        self.w_k_compress = nn.Parameter(
+            torch.randn(compression_block_size, 1, dtype=dtype)
+        )
+        self.w_v_compress = nn.Parameter(
+            torch.randn(compression_block_size, 1, dtype=dtype)
+        )
         self.w_pe_compress = nn.Parameter(
-            torch.randn(compression_block_size, self.n_kv_heads * self.head_dim, dtype=dtype)
+            torch.randn(
+                compression_block_size, self.n_kv_heads * self.head_dim, dtype=dtype
+            )
         )
         self.w_gate = nn.Linear(d_in, 3, dtype=dtype)  # 3 gates= compress,select,window
         self.use_rope = use_rope
@@ -66,15 +75,18 @@ class NativeSparseAttention(nn.Module):
         )
 
     def _create_sliding_window_mask(self, seq_len: int) -> torch.Tensor:
-        if not hasattr(self, '_cached_window_mask') or self._cached_window_mask.shape[0] < seq_len:
+        if (
+            not hasattr(self, "_cached_window_mask")
+            or self._cached_window_mask.shape[0] < seq_len
+        ):
             max_size = max(seq_len, self.max_seq_len)
             device = self.causal_mask.device
             rows = torch.arange(max_size, device=device).unsqueeze(1)
             cols = torch.arange(max_size, device=device).unsqueeze(0)
             mask = (cols <= rows) & (cols > rows - self.window_size)
-            
+
             self._cached_window_mask = mask
-        
+
         return self._cached_window_mask[:seq_len, :seq_len]
 
     def _create_compressed_causal_mask(self, q_len: int, kv_len: int) -> torch.Tensor:
@@ -156,24 +168,24 @@ class NativeSparseAttention(nn.Module):
         seq_len: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         num_compressed = compressed_keys.shape[1]
-        
+
         q_compress = queries.view(
             batch_size, seq_len, self.num_heads, self.head_dim
         ).transpose(1, 2)
         k_compress = compressed_keys.view(
             batch_size, num_compressed, self.n_kv_heads, self.head_dim
         ).transpose(1, 2)
-        
+
         if self.n_kv_heads < self.num_heads:
             k_compress = k_compress.repeat_interleave(self.num_kv_groups, dim=1)
-        
+
         scores = q_compress @ k_compress.transpose(2, 3) / math.sqrt(self.head_dim)
         token_importance = scores.mean(dim=(1, 2))  # [batch, num_compressed]
-        
+
         _, top_indices = torch.topk(
             token_importance, k=min(self.selection_top_k, num_compressed), dim=-1
         )
-        
+
         max_selected_tokens = self.selection_top_k * self.selection_block_size
         selected_keys = torch.zeros(
             batch_size, max_selected_tokens, keys.shape[-1], device=keys.device
@@ -187,7 +199,7 @@ class NativeSparseAttention(nn.Module):
         selected_positions = torch.zeros(
             batch_size, max_selected_tokens, dtype=torch.long, device=keys.device
         )
-        
+
         # Vectorized gathering
         for b in range(batch_size):
             token_idx = 0
@@ -196,15 +208,19 @@ class NativeSparseAttention(nn.Module):
                 start_idx = block_idx * self.compression_stride
                 end_idx = min(start_idx + self.selection_block_size, seq_len)
                 block_len = end_idx - start_idx
-                
+
                 if block_len > 0:
-                    selected_keys[b, token_idx:token_idx + block_len] = keys[b, start_idx:end_idx]
-                    selected_values[b, token_idx:token_idx + block_len] = values[b, start_idx:end_idx]
-                    selected_mask[b, token_idx:token_idx + block_len] = True
+                    selected_keys[b, token_idx : token_idx + block_len] = keys[
+                        b, start_idx:end_idx
+                    ]
+                    selected_values[b, token_idx : token_idx + block_len] = values[
+                        b, start_idx:end_idx
+                    ]
+                    selected_mask[b, token_idx : token_idx + block_len] = True
                     positions = torch.arange(start_idx, end_idx, device=keys.device)
-                    selected_positions[b, token_idx:token_idx + block_len] = positions
+                    selected_positions[b, token_idx : token_idx + block_len] = positions
                     token_idx += block_len
-        
+
         return selected_keys, selected_values, selected_mask, selected_positions
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -229,19 +245,21 @@ class NativeSparseAttention(nn.Module):
         v_comp = compressed_values.view(
             batch_size, -1, self.n_kv_heads, self.head_dim
         ).transpose(1, 2)
-        
+
         if self.n_kv_heads < self.num_heads:
             k_comp = k_comp.repeat_interleave(self.num_kv_groups, dim=1)
             v_comp = v_comp.repeat_interleave(self.num_kv_groups, dim=1)
 
         scores_comp = q_comp @ k_comp.transpose(2, 3) / math.sqrt(self.head_dim)
-        
+
         if self.use_causal:
-            comp_mask = self._create_compressed_causal_mask(seq_len, compressed_keys.shape[1])
+            comp_mask = self._create_compressed_causal_mask(
+                seq_len, compressed_keys.shape[1]
+            )
             scores_comp = scores_comp.masked_fill(
                 comp_mask.unsqueeze(0).unsqueeze(0) == 0, float("-inf")
             )
-        
+
         attn_comp = F.softmax(scores_comp, dim=-1)
         attn_comp = self.dropout(attn_comp)
         out_comp = (
@@ -250,8 +268,13 @@ class NativeSparseAttention(nn.Module):
             .contiguous()
             .view(batch_size, seq_len, self.d_out)
         )
-        
-        selected_keys, selected_values, selected_mask, selected_positions = self._select_tokens(
+
+        (
+            selected_keys,
+            selected_values,
+            selected_mask,
+            selected_positions,
+        ) = self._select_tokens(
             queries,
             keys,
             values,
@@ -277,12 +300,18 @@ class NativeSparseAttention(nn.Module):
 
         scores_sel = q_sel @ k_sel.transpose(2, 3) / math.sqrt(self.head_dim)
 
-        scores_sel = scores_sel.masked_fill(~selected_mask.unsqueeze(1).unsqueeze(2), float("-inf"))
+        scores_sel = scores_sel.masked_fill(
+            ~selected_mask.unsqueeze(1).unsqueeze(2), float("-inf")
+        )
 
         if self.use_causal:
-            q_positions = torch.arange(seq_len, device=x.device).unsqueeze(0).unsqueeze(-1)
+            q_positions = (
+                torch.arange(seq_len, device=x.device).unsqueeze(0).unsqueeze(-1)
+            )
             causal_mask_sel = q_positions >= selected_positions.unsqueeze(1)
-            causal_mask_sel = causal_mask_sel.unsqueeze(1).expand(-1, self.num_heads, -1, -1)
+            causal_mask_sel = causal_mask_sel.unsqueeze(1).expand(
+                -1, self.num_heads, -1, -1
+            )
             scores_sel = scores_sel.masked_fill(~causal_mask_sel, float("-inf"))
 
         attn_sel = F.softmax(scores_sel, dim=-1)
@@ -293,7 +322,7 @@ class NativeSparseAttention(nn.Module):
             .contiguous()
             .view(batch_size, seq_len, self.d_out)
         )
-        
+
         window_mask = self._create_sliding_window_mask(seq_len)
         q_win = queries.view(
             batch_size, seq_len, self.num_heads, self.head_dim
@@ -321,7 +350,7 @@ class NativeSparseAttention(nn.Module):
             .contiguous()
             .view(batch_size, seq_len, self.d_out)
         )
-        
+
         gates = torch.sigmoid(self.w_gate(x))  # [batch, seq_len, 3]
         out = (
             gates[:, :, 0:1] * out_comp

@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 
 from nn.attention.multihead_attention import MultiHeadAttention
-from nn.attention.native_sparse_attention import NativeSparseAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
+from nn.attention.native_sparse_attention import NativeSparseAttention
 from nn.ffn import FeedForward
 from nn.norms import LayerNorm
 from nn.utils import autocast_precision
+
 
 class GPTTransformerBlock(nn.Module):
     def __init__(self, cfg):
@@ -14,7 +15,9 @@ class GPTTransformerBlock(nn.Module):
         n_heads = cfg["n_heads"]
         n_kv_heads = cfg.get("n_kv_heads", n_heads)
         if n_heads % n_kv_heads != 0:
-            raise ValueError(f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})")
+            raise ValueError(
+                f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})"
+            )
         if cfg.get("attention", "mha") == "nsa":
             self.att = NativeSparseAttention(
                 d_in=cfg["emb_dim"],

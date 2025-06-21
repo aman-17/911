@@ -1,11 +1,12 @@
+import math
+from typing import Optional
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import Optional
-import math
 
 from nn.norms import RMSNorm
 from nn.rope import RotaryPositionalEmbeddings
+
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
     x1 = x[..., : x.shape[-1] // 2]

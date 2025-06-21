@@ -35,7 +35,7 @@ def calc_total_loss(data_loader, model, device, num_batches=None) -> float:
     model.eval()
     total_loss = 0.0
     batch_count = 0
-    
+
     try:
         if num_batches is None:
             num_batches = len(data_loader)
@@ -53,6 +53,6 @@ def calc_total_loss(data_loader, model, device, num_batches=None) -> float:
                 batch_count += 1
             else:
                 break
-    
+
     model.train()
     return total_loss / max(1, batch_count)

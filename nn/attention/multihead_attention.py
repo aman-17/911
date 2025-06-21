@@ -76,14 +76,18 @@ class MultiHeadAttention(nn.Module):
 
         if self.use_flash_attn:
             context_vec = F.scaled_dot_product_attention(
-                queries, keys, values,
+                queries,
+                keys,
+                values,
                 attn_mask=None,
                 dropout_p=self.dropout.p if self.training else 0.0,
-                is_causal=True
+                is_causal=True,
             )
         else:
             # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
-            attn_scores = queries @ keys.transpose(2, 3)  # attn_scores shape: (2, 2, 6, 6).
+            attn_scores = queries @ keys.transpose(
+                2, 3
+            )  # attn_scores shape: (2, 2, 6, 6).
             # Creates a boolean mask to prevent attending to future tokens
             mask_bool = self.mask.to(torch.bool)[
                 :num_tokens, :num_tokens
@@ -144,7 +148,9 @@ class NormalizedMultiHeadAttention(nn.Module):
         self.sq = nn.Parameter(torch.empty(self.head_dim * self.num_heads, dtype=dtype))
         self.sk_init_value = 1.0
         self.sk_init_scaling = 1.0 / math.sqrt(d_in)
-        self.sk = nn.Parameter(torch.empty(self.head_dim * self.n_kv_heads, dtype=dtype))
+        self.sk = nn.Parameter(
+            torch.empty(self.head_dim * self.n_kv_heads, dtype=dtype)
+        )
 
         self.sqrt_head_dim = math.sqrt(self.head_dim)
         self.reset_parameters()

@@ -1,14 +1,17 @@
 import math
+
 import torch
 import torch.nn as nn
+
 
 def ensure_multiple_of(x: int, of: int) -> int:
     return of * math.ceil(x / of)
 
+
 def autocast_precision(precision) -> torch.dtype:
     if isinstance(precision, torch.dtype):
         return precision
-    
+
     if precision == "bf16":
         return torch.bfloat16
     elif precision == "fp16":
@@ -17,6 +20,7 @@ def autocast_precision(precision) -> torch.dtype:
         return torch.float32
     else:
         raise ValueError(f"Unexpected precision type '{precision}'")
+
 
 def generate_text_simple(
     model: nn.Module, idx: torch.Tensor, max_new_tokens: int, context_size: int
