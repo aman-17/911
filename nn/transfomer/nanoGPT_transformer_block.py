@@ -3,12 +3,12 @@ import torch.nn as nn
 from nn.attention.multihead_attention import MultiHeadAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.attention.native_sparse_attention import NativeSparseAttention
-from nn.ffn import FeedForward
+from nn.ffn import nanoGPTFeedForward
 from nn.norms import LayerNorm
 from nn.utils import autocast_precision
 
 
-class GPTTransformerBlock(nn.Module):
+class nanoGPTTransformerBlock(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         n_heads = cfg["n_heads"]
@@ -69,7 +69,7 @@ class GPTTransformerBlock(nn.Module):
                 use_flash_attn=cfg.get("use_flash_attn", True),
             )
 
-        self.ff = FeedForward(cfg)
+        self.ff = nanoGPTFeedForward(cfg)
         self.norm1 = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.norm2 = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.drop_resid = nn.Dropout(cfg["drop_rate"])

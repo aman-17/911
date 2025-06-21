@@ -4,9 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from nn.activations import GELU
 from nn.utils import autocast_precision
-
-# from nn.activations import GELU
 
 
 class FeedForward(nn.Module):
@@ -77,3 +76,20 @@ class NormalizedFeedForward(nn.Module):
 
     def _normalize_matrix(self, w: torch.Tensor, dim: int = -1):
         w.copy_(self.l2_normalize(w, dim=dim))
+
+
+class nanoGPTFeedForward(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.emb_dim = cfg["emb_dim"]
+        self.hidden_dim = cfg["hidden_dim"] if "hidden_dim" in cfg else 4 * self.emb_dim
+        self.dtype = autocast_precision(cfg["dtype"])
+        self.layers = nn.Sequential(
+            nn.Linear(cfg["emb_dim"], self.hidden_dim),
+            GELU(),
+            nn.Linear(self.hidden_dim, cfg["emb_dim"]),
+        )
+
+    def forward(self, x):
+        x = x.to(self.dtype)
+        return self.layers(x)

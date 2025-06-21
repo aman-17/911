@@ -1,5 +1,4 @@
 import torch
-import torch.distributed as dist
 
 
 def calc_loss_batch(input_batch, target_batch, model, device) -> torch.Tensor:

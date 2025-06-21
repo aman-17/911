@@ -8,7 +8,7 @@ import yaml
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from data.dataset_utils import create_train_loader
-from nn.gpt_block import GPTModel, nGPTModel
+from nn.gpt_block import GPTModel, nGPTModel, nanoGPTModel
 from nn.llama_block import LlamaModel
 from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.utils import generate_text_simple
@@ -58,6 +58,8 @@ def train_911(
     device = torch.device(f"cuda:{rank}")
     if train_config["model_arch"] == "gpt":
         model = GPTModel(train_config)
+    elif train_config["model_arch"] == "nanogpt":
+        model = nanoGPTModel(train_config)
     elif train_config["model_arch"] == "ngpt":
         model = nGPTModel(train_config)
     else:
@@ -67,7 +69,7 @@ def train_911(
     model = DDP(model, device_ids=[rank], output_device=rank)
     if rank == 0:
         wandb.login(key=os.getenv("WANDB_API_KEY"))
-        run = wandb.init(project="911-training", config=train_config)
+        wandb.init(project="911-training", config=train_config)
 
     train_loader, tokenizer = create_train_loader(train_config)
     optimizer = torch.optim.AdamW(
@@ -165,7 +167,6 @@ def main():
         train_config = yaml.safe_load(f)
 
     world_size = torch.cuda.device_count()
-    # print(f"Using {world_size} GPUs for training")
     mp.spawn(
         run_training, args=(world_size, train_config), nprocs=world_size, join=True
     )

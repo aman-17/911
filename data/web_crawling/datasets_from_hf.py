@@ -158,7 +158,7 @@ def main():
     print(f"Output directory: {args.output_dir}")
     print(f"Shard size: {args.shard_size:,} tokens")
     if args.num_proc:
-        original_cpu_count = os.cpu_count
+        # original_cpu_count = os.cpu_count
         os.cpu_count = lambda: args.num_proc * 2
 
     process_dataset(dataset, tokenizer, args.output_dir, args.shard_size)
