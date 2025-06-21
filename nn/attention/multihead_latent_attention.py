@@ -8,35 +8,26 @@ from nn.norms import RMSNorm
 from nn.rope import RotaryPositionalEmbeddings
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
-    """Rotates half the hidden dims of the input for RoPE."""
     x1 = x[..., : x.shape[-1] // 2]
     x2 = x[..., x.shape[-1] // 2 :]
     return torch.cat((-x2, x1), dim=-1)
 
 
 def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
-    """
-    Applies rotary positional embeddings to the input tensor.
-    Fixed to match official implementation more closely.
-    """
     dtype = x.dtype
-    # Ensure x has even dimensions for complex view
     if x.size(-1) % 2 != 0:
         raise ValueError(f"Last dimension must be even, got {x.size(-1)}")
     
     x = torch.view_as_complex(x.float().view(*x.shape[:-1], -1, 2))
     
-    # Adjust freqs_cis shape to match x
     if len(freqs_cis.shape) == 2:  # [seq_len, dim//2]
         freqs_cis = freqs_cis.view(1, freqs_cis.size(0), 1, freqs_cis.size(1))
-    elif len(freqs_cis.shape) == 4:  # Already in correct shape
+    elif len(freqs_cis.shape) == 4:
         pass
     else:
         raise ValueError(f"Unexpected freqs_cis shape: {freqs_cis.shape}")
     
-    # Ensure freqs_cis matches x dimensions
     if freqs_cis.size(-1) != x.size(-1):
-        # Take only the needed dimensions
         freqs_cis = freqs_cis[..., :x.size(-1)]
     
     y = torch.view_as_real(x * freqs_cis).flatten(3)
@@ -44,10 +35,6 @@ def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
 
 
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-    """
-    Repeat key/value heads for multi-query attention.
-    From (batch, n_kv_heads, seq_len, head_dim) to (batch, n_heads, seq_len, head_dim)
-    """
     if n_rep == 1:
         return hidden_states
     batch, seq_len, n_kv_heads, head_dim = hidden_states.shape
@@ -85,7 +72,6 @@ class MultiHeadLatentAttention(nn.Module):
         self.d_in = d_in
         self.d_out = d_out
         self.num_heads = num_heads
-        # Fix: Handle distributed properly - get world_size safely
         world_size = 1
         if torch.distributed.is_initialized():
             world_size = torch.distributed.get_world_size()
