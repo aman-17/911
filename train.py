@@ -8,7 +8,7 @@ import yaml
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from data.dataset_utils import create_train_loader
-from nn.gpt_block import GPTModel, nGPTModel, nanoGPTModel
+from nn.gpt_block import GPTModel, nanoGPTModel, nGPTModel
 from nn.llama_block import LlamaModel
 from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.utils import generate_text_simple
@@ -82,51 +82,75 @@ def train_911(
         optimizer, T_max=num_epochs * len(train_loader), eta_min=0.0, last_epoch=-1
     )
 
-    train_losses, track_tokens_seen = [], []
-    step_loss = []
+    train_ce_losses, train_z_losses, track_tokens_seen = [], [], []
+    ce_step_loss = []
+    z_step_loss = []
     tokens_seen = 0
     global_step = 0
 
     for epoch in range(num_epochs):
         model.train()
-        epoch_loss = 0.0
+        ce_epoch_loss = 0.0
+        z_epoch_loss = 0.0
 
         for batch_idx, (input_batch, target_batch) in enumerate(train_loader):
             input_batch = input_batch.to(device)
             target_batch = target_batch.to(device)
 
             optimizer.zero_grad()
-            loss = calc_loss_batch(input_batch, target_batch, model, device)
-            scaled_loss = loss / world_size
-            scaled_loss.backward()
-            if rank == 0:
-                wandb.log({"Batch loss": loss.item(), "global_step": global_step})
+            ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)
+            scaled_ce_loss = ce_loss / world_size
+            scaled_ce_loss.backward()
+            scaled_z_loss = z_loss / world_size
+            scaled_z_loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
             optimizer.step()
             learning_rate_scheduler.step()
 
-            step_loss.append(loss.item())
+            ce_step_loss.append(ce_loss.item())
+            z_step_loss.append(z_loss.item())
             tokens_seen += input_batch.numel()
-            epoch_loss += loss.item()
+            ce_epoch_loss += ce_loss.item()
+            z_epoch_loss += z_loss.item()
 
             if global_step % eval_freq == 0:
                 dist.barrier()
-                train_loss = calc_total_loss(train_loader, model, device, eval_iter)
-                gathered_losses = [torch.zeros(1).to(device) for _ in range(world_size)]
-                dist.all_gather(gathered_losses, torch.tensor([train_loss]).to(device))
-                avg_train_loss = (
-                    sum(loss.item() for loss in gathered_losses) / world_size
+                total_ce_loss, total_z_loss = calc_total_loss(
+                    train_loader, model, device, eval_iter
+                )
+
+                gathered_ce_losses = [
+                    torch.zeros(1).to(device) for _ in range(world_size)
+                ]
+                dist.all_gather(
+                    gathered_ce_losses, torch.tensor([total_ce_loss]).to(device)
+                )
+                avg_train_ce_loss = (
+                    sum(loss.item() for loss in gathered_ce_losses) / world_size
+                )
+
+                gathered_z_losses = [
+                    torch.zeros(1).to(device) for _ in range(world_size)
+                ]
+                dist.all_gather(
+                    gathered_z_losses, torch.tensor([total_z_loss]).to(device)
+                )
+                avg_train_z_loss = (
+                    sum(loss.item() for loss in gathered_z_losses) / world_size
                 )
 
                 if rank == 0:
-                    train_losses.append(avg_train_loss)
+                    train_ce_losses.append(avg_train_ce_loss)
+                    train_z_losses.append(avg_train_z_loss)
                     track_tokens_seen.append(tokens_seen)
                     wandb.log(
                         {
-                            "global train loss": avg_train_loss,
-                            "scaled batch loss": loss.item() / world_size,
+                            "global train CE loss": avg_train_ce_loss,
+                            "global train Z loss": avg_train_z_loss,
+                            "scaled CE batch loss": scaled_ce_loss.item(),
+                            "scaled Z batch loss": scaled_z_loss.item(),
                             "lr": learning_rate_scheduler.get_last_lr()[0],
                             "tokens_seen": tokens_seen,
                             "epoch": epoch,
@@ -137,9 +161,16 @@ def train_911(
 
             global_step += 1
         if rank == 0:
-            avg_epoch_loss = epoch_loss / len(train_loader)
+            avg_epoch_loss = ce_epoch_loss / len(train_loader)
+            avg_z_epoch_loss = z_epoch_loss / len(train_loader)
             # print(f"Epoch {epoch+1}/{num_epochs}, Avg Loss: {avg_epoch_loss:.4f}")
-            wandb.log({"epoch_loss": avg_epoch_loss, "epoch": epoch})
+            wandb.log(
+                {
+                    "epoch_loss": avg_epoch_loss,
+                    "epoch": epoch,
+                    "z_epoch_loss": avg_z_epoch_loss,
+                }
+            )
 
     if rank == 0:
         torch.save(model.module.state_dict(), "model_checkpoint.pt")
@@ -147,11 +178,11 @@ def train_911(
 
     cleanup()
 
-    return train_losses, track_tokens_seen
+    return train_ce_losses, train_z_losses, track_tokens_seen
 
 
 def run_training(rank, world_size, train_config):
-    train_losses, tokens_seen = train_911(
+    train_ce_losses, train_z_losses, tokens_seen = train_911(
         rank=rank,
         world_size=world_size,
         train_config=train_config,
