@@ -118,7 +118,7 @@ def setup_fsdp_model(model: torch.nn.Module, train_config: Dict) -> torch.nn.Mod
         mixed_precision_policy = MixedPrecision(
             param_dtype=torch.float16,
             reduce_dtype=torch.float16,
-            buffer_dtype=torch.float16,
+            buffer_dtype=torch.float32,  # Keep buffers in fp32 for stability
         )
     cpu_offload_policy = None
     if fsdp_config["cpu_offload"]:
@@ -281,6 +281,29 @@ def should_save_checkpoint(global_step: int, train_config: Dict) -> bool:
     return global_step > 0 and global_step % save_frequency == 0
 
 
+def get_model_dtype(model: torch.nn.Module, train_config: Dict) -> torch.dtype:
+    """Get the appropriate dtype for model inputs based on FSDP mixed precision."""
+    strategy = train_config.get("distributed", {}).get("strategy", "ddp").lower()
+    
+    if strategy == "fsdp" and isinstance(model, FSDP):
+        fsdp_config = train_config.get("distributed", {}).get("fsdp", {})
+        if fsdp_config.get("mixed_precision", False):
+            return torch.float16
+    
+    return torch.float32
+
+
+def convert_inputs_to_model_dtype(input_batch: torch.Tensor, target_batch: torch.Tensor, model: torch.nn.Module, train_config: Dict):
+    """Convert input tensors to the appropriate dtype for the model."""
+    model_dtype = get_model_dtype(model, train_config)
+    
+    if model_dtype != input_batch.dtype:
+        input_batch = input_batch.to(dtype=model_dtype)
+    
+    # Keep target as int64 for loss computation
+    return input_batch, target_batch
+
+
 def generate_and_print_sample(model, tokenizer, start_context, device, rank):
     if rank == 0:
         model.eval()
@@ -344,6 +367,11 @@ def train_911(
         for input_batch, target_batch in train_loader:
             input_batch = input_batch.to(device)
             target_batch = target_batch.to(device)
+            
+            # Convert inputs to appropriate dtype for FSDP mixed precision
+            input_batch, target_batch = convert_inputs_to_model_dtype(
+                input_batch, target_batch, model, train_config
+            )
 
             optimizer.zero_grad()
             ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)

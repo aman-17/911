@@ -164,7 +164,7 @@ distributed:
   strategy: "ddp" 
   fsdp:
     sharding_strategy: "FULL_SHARD"  # [FULL_SHARD, SHARD_GRAD_OP, NO_SHARD, HYBRID_SHARD]
-    mixed_precision: true
+    mixed_precision: false  # Disabled by default to avoid dtype issues
     activation_checkpointing: true
     cpu_offload: false
     backward_prefetch: "BACKWARD_PRE"  # [BACKWARD_PRE, BACKWARD_POST]
