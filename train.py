@@ -347,10 +347,10 @@ def train_911(
 
             optimizer.zero_grad()
             ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)
-            scaled_ce_loss = ce_loss / world_size
-            scaled_ce_loss.backward()
-            scaled_z_loss = z_loss / world_size
-            scaled_z_loss.backward()
+            
+            # Combine losses before backward to avoid double backward pass
+            total_loss = (ce_loss + z_loss) / world_size
+            total_loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), GRADIENT_CLIP_VALUE)
 

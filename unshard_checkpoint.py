@@ -99,12 +99,12 @@ def unshard_optimizer_checkpoint(
         sharded_optim_state_dict = torch.load(optim_file, map_location="cpu")
         sharded_optim_state_dicts.append(sharded_optim_state_dict)
 
-    with FSDP.state_dict_type(
-        model,
-        StateDictType.FULL_STATE_DICT,
-        FullOptimStateDictConfig(rank0_only=True, offload_to_cpu=True)
-    ):
-        full_optim_state_dict = FSDP.optim_state_dict(model, optimizer)
+    # For optimizer, we need to use the simpler approach
+    full_optim_state_dict = FSDP.full_optim_state_dict(
+        model, 
+        optimizer,
+        rank0_only=True
+    )
     
     torch.save(full_optim_state_dict, output_path / "optim.pt")
     print(f"Unsharded optimizer saved to {output_path / 'optim.pt'}")
