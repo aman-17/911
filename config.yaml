@@ -151,3 +151,28 @@ softcap: null
 query_pre_attn_scalar: 1.0
 beta_fast: 32
 beta_slow: 1
+
+checkpoint:
+  save_frequency: 1000
+  save_dir: "checkpoints"
+  keep_last_n: 3
+  save_model: true
+  save_optimizer: true
+  save_training_state: true
+
+distributed:
+  strategy: "ddp" 
+  fsdp:
+    sharding_strategy: "FULL_SHARD"  # [FULL_SHARD, SHARD_GRAD_OP, NO_SHARD, HYBRID_SHARD]
+    mixed_precision: true
+    activation_checkpointing: true
+    cpu_offload: false
+    backward_prefetch: "BACKWARD_PRE"  # [BACKWARD_PRE, BACKWARD_POST]
+    forward_prefetch: false
+    use_orig_params: true 
+
+eval_freq: 10
+eval_iter: 50
+start_context: "The Bowmanstown Borough Authority was incorporated August 24, 1997 and"
+warmup_fraction: 0.1
+alpha_f: 0.1
