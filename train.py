@@ -4,12 +4,12 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import wandb
-import yaml
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from config_utils import load_config
 from data.dataset_utils import create_train_loader
-from nn.gpt_block import GPTModel, nanoGPTModel, nGPTModel
-from nn.llama_block import LlamaModel
+from nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
+from nn.transfomer.model.llama_model import LlamaModel
 from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.utils import generate_text_simple
 
@@ -17,8 +17,11 @@ from nn.utils import generate_text_simple
 def setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "29501"
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    torch.cuda.set_device(rank)
+    if torch.cuda.is_available():
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)
+        torch.cuda.set_device(rank)
+    elif torch.backends.mps.is_available():
+        dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
 
 def cleanup():
@@ -55,7 +58,12 @@ def train_911(
     start_context,
 ):
     setup(rank, world_size)
-    device = torch.device(f"cuda:{rank}")
+    if torch.cuda.is_available():
+        device = torch.device(f"cuda:{rank}")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     if train_config["model_arch"] == "gpt":
         model = GPTModel(train_config)
     elif train_config["model_arch"] == "nanogpt":
@@ -66,7 +74,10 @@ def train_911(
         model = LlamaModel(train_config)
 
     model = model.to(device)
-    model = DDP(model, device_ids=[rank], output_device=rank)
+    if torch.cuda.is_available():
+        model = DDP(model, device_ids=[rank], output_device=rank)
+    elif world_size > 1:
+        model = DDP(model)
     if rank == 0:
         wandb.login(key=os.getenv("WANDB_API_KEY"))
         wandb.init(project="911-training", config=train_config)
@@ -83,8 +94,6 @@ def train_911(
     )
 
     train_ce_losses, train_z_losses, track_tokens_seen = [], [], []
-    ce_step_loss = []
-    z_step_loss = []
     tokens_seen = 0
     global_step = 0
 
@@ -109,8 +118,6 @@ def train_911(
             optimizer.step()
             learning_rate_scheduler.step()
 
-            ce_step_loss.append(ce_loss.item())
-            z_step_loss.append(z_loss.item())
             tokens_seen += input_batch.numel()
             ce_epoch_loss += ce_loss.item()
             z_epoch_loss += z_loss.item()
@@ -149,8 +156,6 @@ def train_911(
                         {
                             "global train CE loss": avg_train_ce_loss,
                             "global train Z loss": avg_train_z_loss,
-                            "scaled CE batch loss": scaled_ce_loss.item(),
-                            "scaled Z batch loss": scaled_z_loss.item(),
                             "lr": learning_rate_scheduler.get_last_lr()[0],
                             "tokens_seen": tokens_seen,
                             "epoch": epoch,
@@ -160,17 +165,6 @@ def train_911(
                 generate_and_print_sample(model, tokenizer, start_context, device, rank)
 
             global_step += 1
-        if rank == 0:
-            avg_epoch_loss = ce_epoch_loss / len(train_loader)
-            avg_z_epoch_loss = z_epoch_loss / len(train_loader)
-            # print(f"Epoch {epoch+1}/{num_epochs}, Avg Loss: {avg_epoch_loss:.4f}")
-            wandb.log(
-                {
-                    "epoch_loss": avg_epoch_loss,
-                    "epoch": epoch,
-                    "z_epoch_loss": avg_z_epoch_loss,
-                }
-            )
 
     if rank == 0:
         torch.save(model.module.state_dict(), "model_checkpoint.pt")
@@ -194,13 +188,16 @@ def run_training(rank, world_size, train_config):
 
 
 def main():
-    with open("config.yaml") as f:
-        train_config = yaml.safe_load(f)
+    train_config = load_config()
 
-    world_size = torch.cuda.device_count()
-    mp.spawn(
-        run_training, args=(world_size, train_config), nprocs=world_size, join=True
-    )
+    if torch.cuda.is_available():
+        world_size = torch.cuda.device_count()
+        mp.spawn(
+            run_training, args=(world_size, train_config), nprocs=world_size, join=True
+        )
+    else:
+        world_size = 1
+        run_training(0, world_size, train_config)
 
 
 if __name__ == "__main__":

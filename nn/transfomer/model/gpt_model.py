@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 
 from nn.norms import LayerNorm
-from nn.transfomer.gpt_transformer_block import GPTTransformerBlock
-from nn.transfomer.nanoGPT_transformer_block import nanoGPTTransformerBlock
+from nn.transfomer.block.gpt_transformer_block import GPTTransformerBlock
+from nn.transfomer.block.nanoGPT_transformer_block import nanoGPTTransformerBlock
 from nn.utils import autocast_precision
 
 

@@ -18,6 +18,7 @@ dependencies = [
     "cached-path>=1.7.2",
     "requests",
     "safetensors",
+    "transformers",
     "datasets",
     "wandb",
     "tiktoken",

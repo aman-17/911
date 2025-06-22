@@ -435,13 +435,3 @@ class YaRNRotaryEmbedding(nn.Module):
                 k_ = self._apply_rotary_pos_emb(freqs_cis[None, :, None, :], k_)
 
         return q_.type_as(q), k_.type_as(k)
-
-
-def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-    if n_rep == 1:
-        return hidden_states
-    batch, seq_len, n_kv_heads, head_dim = hidden_states.shape
-    hidden_states = hidden_states[:, :, :, None, :].expand(
-        batch, seq_len, n_kv_heads, n_rep, head_dim
-    )
-    return hidden_states.reshape(batch, seq_len, n_kv_heads * n_rep, head_dim)

@@ -2,11 +2,118 @@ vocab_size: 50257
 max_seq_length: 4096
 seq_length: 4096
 
-model_arch: "llama"
-emb_dim: 2048
-n_heads: 32
-n_layers: 16
-hidden_dim: 3072
+model:
+  variants:
+    llamalike1B:
+      type: "llama3"
+      model_arch: "llamalike1B"
+      emb_dim: 2048
+      n_heads: 32
+      n_layers: 16
+      hidden_dim: 3072
+      n_kv_heads: 8
+    
+    llama8B:
+      type: "llama3"
+      model_arch: "8B"
+      emb_dim: 4096
+      n_heads: 32
+      n_layers: 32
+      hidden_dim: 14336
+    
+    llama70B:
+      type: "llama3"
+      model_arch: "70B"
+      emb_dim: 2048
+      n_heads: 64
+      n_layers: 80
+      hidden_dim: 28672
+      n_kv_heads: 8
+    
+    llama405B:
+      type: "llama3"
+      model_arch: "405B"
+      emb_dim: 16384
+      n_heads: 128
+      n_layers: 126
+      hidden_dim: 53248
+      n_kv_heads: 8
+
+    gpt2_small:
+      type: "gpt2"
+      model_arch: "gpt"
+      emb_dim: 768
+      n_heads: 12
+      n_layers: 12
+      hidden_dim: 3072
+      n_kv_heads: 12
+    
+    gpt2_medium:
+      type: "gpt2"
+      model_arch: "gpt"
+      emb_dim: 1024
+      n_heads: 16
+      n_layers: 24
+      hidden_dim: 4096
+      n_kv_heads: 16
+    
+    gpt2_large:
+      type: "gpt2"
+      model_arch: "gpt"
+      emb_dim: 1280
+      n_heads: 20
+      n_layers: 36
+      hidden_dim: 5120
+      n_kv_heads: 20
+    
+    gpt2_xl:
+      type: "gpt2"
+      model_arch: "gpt"
+      emb_dim: 1600
+      n_heads: 25
+      n_layers: 48
+      hidden_dim: 6400
+      n_kv_heads: 25
+
+    ngpt_small:
+      type: "ngpt"
+      model_arch: "ngpt"
+      emb_dim: 768
+      n_heads: 12
+      n_layers: 12
+      hidden_dim: 3072
+      n_kv_heads: 12
+    
+    ngpt_medium:
+      type: "ngpt"
+      model_arch: "ngpt"
+      emb_dim: 1024
+      n_heads: 16
+      n_layers: 24
+      hidden_dim: 4096
+      n_kv_heads: 16
+
+    nanogpt_small:
+      type: "nanogpt"  
+      model_arch: "nanogpt"
+      emb_dim: 768
+      n_heads: 12
+      n_layers: 12
+      hidden_dim: 3072
+      n_kv_heads: 12
+    
+    nanogpt_medium:
+      type: "nanogpt"
+      model_arch: "nanogpt"
+      emb_dim: 1024
+      n_heads: 16
+      n_layers: 24
+      hidden_dim: 4096
+      n_kv_heads: 16
+
+  active: "gpt2_small"
+
+print_config: True
 
 train_data: edu_fineweb10B
 batch_size: 2

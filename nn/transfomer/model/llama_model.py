@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from nn.attention.utils import precompute_freqs_cis
 from nn.norms import RMSNorm
-from nn.transfomer.llama_transformer_block import LlamaTransformerBlock
+from nn.transfomer.block.llama_transformer_block import LlamaTransformerBlock
 from nn.utils import autocast_precision, ensure_multiple_of
 
 
