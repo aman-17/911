@@ -46,14 +46,28 @@ class TrainerState:
         self.max_tokens = max_tokens or max_steps * 1000
 
 
-def setup(rank, world_size):
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29501"
+def setup(rank: Optional[int] = None, world_size: Optional[int] = None) -> Tuple[int, int, int]:
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+        rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        local_rank = int(os.environ["LOCAL_RANK"])
+        print(f"Running with torchrun: rank={rank}, world_size={world_size}, local_rank={local_rank}")
+        
+    else:
+        if rank is None or world_size is None:
+            raise ValueError("rank and world_size must be provided when not using torchrun")
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "29501"
+        local_rank = rank
+        print(f"Running with mp.spawn: rank={rank}, world_size={world_size}")
+    
     if torch.cuda.is_available():
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
-        torch.cuda.set_device(rank)
+        torch.cuda.set_device(local_rank)
     elif torch.backends.mps.is_available():
         dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    
+    return rank, world_size, local_rank
 
 
 def cleanup():
@@ -74,10 +88,7 @@ def create_model(train_config: Dict, device: torch.device) -> torch.nn.Module:
 
 
 def get_fsdp_config(train_config: Dict) -> Dict:
-    """Get FSDP configuration from train config."""
     fsdp_config = train_config.get("distributed", {}).get("fsdp", {})
-    
-    # Map string to enum values
     sharding_strategy_map = {
         "FULL_SHARD": ShardingStrategy.FULL_SHARD,
         "SHARD_GRAD_OP": ShardingStrategy.SHARD_GRAD_OP,
@@ -108,7 +119,6 @@ def get_fsdp_config(train_config: Dict) -> Dict:
 
 
 def setup_fsdp_model(model: torch.nn.Module, train_config: Dict) -> torch.nn.Module:
-    """Setup model with FSDP."""
     fsdp_config = get_fsdp_config(train_config)
     auto_wrap_policy = functools.partial(
         size_based_auto_wrap_policy, min_num_params=100_000_000
@@ -118,7 +128,7 @@ def setup_fsdp_model(model: torch.nn.Module, train_config: Dict) -> torch.nn.Mod
         mixed_precision_policy = MixedPrecision(
             param_dtype=torch.float16,
             reduce_dtype=torch.float16,
-            buffer_dtype=torch.float32,  # Keep buffers in fp32 for stability
+            buffer_dtype=torch.float32,
         )
     cpu_offload_policy = None
     if fsdp_config["cpu_offload"]:
@@ -185,7 +195,6 @@ def save_checkpoint(
     train_config: Dict,
     rank: int
 ) -> None:
-    """Save checkpoint with separate files for model, optimizer, and training state."""
     checkpoint_config = train_config.get("checkpoint", {})
     save_dir = checkpoint_config.get("save_dir", "checkpoints")
     checkpoint_dir = Path(save_dir)
@@ -275,14 +284,12 @@ def cleanup_old_checkpoints(checkpoint_dir: Path, keep_last_n: int) -> None:
 
 
 def should_save_checkpoint(global_step: int, train_config: Dict) -> bool:
-    """Check if we should save a checkpoint at this step."""
     checkpoint_config = train_config.get("checkpoint", {})
     save_frequency = checkpoint_config.get("save_frequency", 1000)
     return global_step > 0 and global_step % save_frequency == 0
 
 
 def get_model_dtype(model: torch.nn.Module, train_config: Dict) -> torch.dtype:
-    """Get the appropriate dtype for model inputs based on FSDP mixed precision."""
     strategy = train_config.get("distributed", {}).get("strategy", "ddp").lower()
     
     if strategy == "fsdp" and isinstance(model, FSDP):
@@ -294,13 +301,11 @@ def get_model_dtype(model: torch.nn.Module, train_config: Dict) -> torch.dtype:
 
 
 def convert_inputs_to_model_dtype(input_batch: torch.Tensor, target_batch: torch.Tensor, model: torch.nn.Module, train_config: Dict):
-    """Convert input tensors to the appropriate dtype for the model."""
-    model_dtype = get_model_dtype(model, train_config)
+    # model_dtype = get_model_dtype(model, train_config)
     
-    if model_dtype != input_batch.dtype:
-        input_batch = input_batch.to(dtype=model_dtype)
+    # if model_dtype != input_batch.dtype:
+    #     input_batch = input_batch.to(dtype=model_dtype)
     
-    # Keep target as int64 for loss computation
     return input_batch, target_batch
 
 
@@ -333,9 +338,9 @@ def train_911(
     eval_iter,
     start_context,
 ):
-    setup(rank, world_size)
+    rank, world_size, local_rank = setup(rank, world_size)
     if torch.cuda.is_available():
-        device = torch.device(f"cuda:{rank}")
+        device = torch.device(f"cuda:{local_rank}")
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
     else:
@@ -367,16 +372,12 @@ def train_911(
         for input_batch, target_batch in train_loader:
             input_batch = input_batch.to(device)
             target_batch = target_batch.to(device)
-            
-            # Convert inputs to appropriate dtype for FSDP mixed precision
             input_batch, target_batch = convert_inputs_to_model_dtype(
                 input_batch, target_batch, model, train_config
             )
 
             optimizer.zero_grad()
             ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)
-            
-            # Combine losses before backward to avoid double backward pass
             total_loss = (ce_loss + z_loss) / world_size
             total_loss.backward()
 
@@ -482,17 +483,34 @@ def run_training(rank, world_size, train_config):
     )
 
 
+def main_torchrun():
+    train_config = load_config()
+    train_ce_losses, train_z_losses, tokens_seen = train_911(
+        rank=None,
+        world_size=None,
+        train_config=train_config,
+        num_epochs=train_config["num_epochs"],
+        eval_freq=train_config.get("eval_freq", DEFAULT_EVAL_FREQ),
+        eval_iter=train_config.get("eval_iter", DEFAULT_EVAL_ITER),
+        start_context=train_config.get("start_context", DEFAULT_START_CONTEXT),
+    )
+
+
 def main():
     train_config = load_config()
-
-    if torch.cuda.is_available():
-        world_size = torch.cuda.device_count()
-        mp.spawn(
-            run_training, args=(world_size, train_config), nprocs=world_size, join=True
-        )
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+        print("Detected torchrun execution")
+        main_torchrun()
     else:
-        world_size = 1
-        run_training(0, world_size, train_config)
+        print("Using mp.spawn execution")
+        if torch.cuda.is_available():
+            world_size = torch.cuda.device_count()
+            mp.spawn(
+                run_training, args=(world_size, train_config), nprocs=world_size, join=True
+            )
+        else:
+            world_size = 1
+            run_training(0, world_size, train_config)
 
 
 if __name__ == "__main__":
