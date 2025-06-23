@@ -3,14 +3,14 @@ import os
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import wandb
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+import wandb
 from config_utils import load_config
 from data.dataset_utils import create_train_loader
+from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
 from nn.transfomer.model.llama_model import LlamaModel
-from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.utils import generate_text_simple
 
 
@@ -167,7 +167,7 @@ def train_911(
             global_step += 1
 
     if rank == 0:
-        torch.save(model.module.state_dict(), "model_checkpoint.pt")
+        # torch.save(model.module.state_dict(), "model_checkpoint.pt") \
         wandb.finish()
 
     cleanup()

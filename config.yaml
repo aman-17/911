@@ -111,7 +111,19 @@ model:
       hidden_dim: 4096
       n_kv_heads: 16
 
-  active: "gpt2_small"
+    qwen3_0_6B:
+      type: "qwen3"
+      model_arch: "qwen3"
+      emb_dim: 1024
+      n_heads: 16
+      n_layers: 28
+      hidden_dim: 3072
+      n_kv_heads: 8
+      window_size: None
+      rope_base": 1_000_000
+
+  active: "qwen3_0_6B"
+
 
 print_config: True
 

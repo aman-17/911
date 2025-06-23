@@ -117,6 +117,16 @@ class RotaryPositionalEmbeddings(nn.Module):
         # print(x_out)
         return x_out.type_as(x)
 
+    def compute_rope_params(self, dim: int, base: int, max_seq_len: int, dtype=torch.float32):
+        assert dim % 2 == 0, "Embedding dimension must be even"
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=dtype)[: (dim // 2)].float() / dim))
+        positions = torch.arange(max_seq_len, dtype=dtype)
+        angles = positions[:, None] * inv_freq[None, :]  # Shape: (context_length, head_dim // 2)
+        angles = torch.cat([angles, angles], dim=1)  # Shape: (context_length, head_dim)
+        cos = torch.cos(angles)
+        sin = torch.sin(angles)
+        return cos, sin
+
 
 class ComplexRotaryEmbedding(nn.Module):
     """

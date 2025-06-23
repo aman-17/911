@@ -27,6 +27,23 @@ class FeedForward(nn.Module):
         x = x.to(self.dtype)
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
+class Qwen3FeedForward(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.emb_dim = cfg["emb_dim"]
+        self.hidden_dim = cfg["hidden_dim"] if "hidden_dim" in cfg else 4 * self.emb_dim
+        self.dtype = autocast_precision(cfg["dtype"])
+        self.w1 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
+        self.w2 = nn.Linear(self.hidden_dim, self.emb_dim, dtype=self.dtype)
+        self.w3 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
+
+    def forward(self, x):
+        x = x.to(self.dtype)
+        x_fc1 = self.w1(x)
+        x_fc2 = self.w2(x)
+        x = F.silu(x_fc1) * x_fc2
+        return self.w3(x)
+
 
 class NormalizedFeedForward(nn.Module):
     def __init__(self, cfg):
@@ -93,3 +110,5 @@ class nanoGPTFeedForward(nn.Module):
     def forward(self, x):
         x = x.to(self.dtype)
         return self.layers(x)
+    
+

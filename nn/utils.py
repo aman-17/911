@@ -1,5 +1,5 @@
 import math
-
+from typing import Optional
 import torch
 import torch.nn as nn
 
@@ -23,8 +23,8 @@ def autocast_precision(precision) -> torch.dtype:
 
 
 def generate_text_simple(
-    model: nn.Module, idx: torch.Tensor, max_new_tokens: int, context_size: int
-) -> torch.Tensor:
+    model: nn.Module, idx: torch.Tensor, max_new_tokens: int, context_size: int, use_cache: Optional[bool] = False
+) -> list[int]:
     """
     Generate text using a simple greedy sampling strategy.
 
@@ -48,7 +48,12 @@ def generate_text_simple(
         idx_cond = idx[:, -context_size:]
 
         with torch.no_grad():
-            logits = model(idx_cond)
+            # if use_cache:
+            #     model.reset_kv_cache()
+            #     logits = model(idx_cond, use_cache=True)
+            # else:
+            #     logits = model(idx_cond, use_cache=False)
+            logits = model(idx_cond, use_cache=use_cache)
             logits = logits[:, -1, :]
             probas = torch.softmax(logits, dim=-1)
             idx_next = torch.argmax(probas, dim=-1, keepdim=True)
