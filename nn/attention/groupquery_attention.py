@@ -33,6 +33,7 @@ class GroupedQueryAttention(nn.Module):
         self.group_size = num_heads // num_kv_groups
         self.head_dim = d_in // num_heads
         self.d_out = self.num_heads * self.head_dim
+        self.max_seq_len = max_seq_len
         self.w_query = nn.Linear(d_in, self.d_out, bias=False, dtype=dtype)
         self.w_key = nn.Linear(
             d_in, num_kv_groups * self.head_dim, bias=False, dtype=dtype
@@ -51,7 +52,6 @@ class GroupedQueryAttention(nn.Module):
             self.rope = RotaryPositionalEmbeddings(
                 dim=self.head_dim, max_seq_len=self.max_seq_len
             )
-        self.max_seq_len = max_seq_len
         self.window_size = window_size or self.max_seq_len
         self.use_flash_attn = use_flash_attn
         self.register_buffer("cache_k", None, persistent=False)
@@ -83,8 +83,8 @@ class GroupedQueryAttention(nn.Module):
         sin_slice = sin[pos_start:pos_end]
 
         if self.use_rope:
-            keys_new = self.rope(keys_new, cos_slice, sin_slice)
-            queries = self.rope(queries, cos_slice, sin_slice)
+            keys_new = self.rope.qwen3_rope(keys_new, cos_slice, sin_slice)
+            queries = self.rope.qwen3_rope(queries, cos_slice, sin_slice)
 
         keys_new = keys_new.repeat_interleave(self.group_size, dim=1)
         values_new = values_new.repeat_interleave(self.group_size, dim=1)

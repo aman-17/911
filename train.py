@@ -10,13 +10,14 @@ from config_utils import load_config
 from data.dataset_utils import create_train_loader
 from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
+from nn.transfomer.model.qwen_model import Qwen3Model
 from nn.transfomer.model.llama_model import LlamaModel
 from nn.utils import generate_text_simple
 
 
 def setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29501"
+    os.environ["MASTER_PORT"] = "29500"
     if torch.cuda.is_available():
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
         torch.cuda.set_device(rank)
@@ -70,6 +71,8 @@ def train_911(
         model = nanoGPTModel(train_config)
     elif train_config["model_arch"] == "ngpt":
         model = nGPTModel(train_config)
+    elif train_config["model_arch"] == "qwen3":
+        model = Qwen3Model(train_config)
     else:
         model = LlamaModel(train_config)
 
@@ -109,9 +112,9 @@ def train_911(
             optimizer.zero_grad()
             ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)
             scaled_ce_loss = ce_loss / world_size
-            scaled_ce_loss.backward()
             scaled_z_loss = z_loss / world_size
-            scaled_z_loss.backward()
+            total_loss = scaled_ce_loss + scaled_z_loss
+            total_loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 

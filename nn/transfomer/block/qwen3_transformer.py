@@ -60,12 +60,13 @@ class Qwen3TransformerBlock(nn.Module):
             self.att = GroupedQueryAttention(
                     d_in=cfg["emb_dim"],
                     d_out=cfg["emb_dim"],
-                    max_seq_len=cfg["max_seq_length"],
                     num_heads=cfg["n_heads"],
-                    num_kv_groups=cfg["n_kv_groups"],
+                    num_kv_groups=cfg["n_kv_heads"],
                     dtype=autocast_precision(cfg["dtype"]),
-                    qk_norm=cfg["qk_norm"],
+                    max_seq_len=cfg["max_seq_length"],
+                    window_size=cfg.get("window_size", cfg["max_seq_length"]),
                     use_rope=cfg["rope"],
+                    qk_norm=cfg["qk_norm"],
                     use_flash_attn=cfg.get("use_flash_attn", True),
             )
         self.ff = Qwen3FeedForward(cfg)

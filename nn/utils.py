@@ -53,7 +53,7 @@ def generate_text_simple(
             #     logits = model(idx_cond, use_cache=True)
             # else:
             #     logits = model(idx_cond, use_cache=False)
-            logits = model(idx_cond, use_cache=use_cache)
+            logits = model(idx_cond)
             logits = logits[:, -1, :]
             probas = torch.softmax(logits, dim=-1)
             idx_next = torch.argmax(probas, dim=-1, keepdim=True)

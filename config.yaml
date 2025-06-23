@@ -1,4 +1,4 @@
-vocab_size: 50257
+vocab_size: 151936
 max_seq_length: 4096
 seq_length: 4096
 
@@ -119,8 +119,11 @@ model:
       n_layers: 28
       hidden_dim: 3072
       n_kv_heads: 8
-      window_size: None
-      rope_base": 1_000_000
+      qk_norm: True
+      vocab_size: 151936
+      context_length: 4096
+      window_size: 512
+      rope_base: 1000000
 
   active: "qwen3_0_6B"
 
@@ -139,7 +142,7 @@ qkv_bias: False
 rope: True
 dtype: fp32
 tie_embeddings: False
-attention: "mla"
+attention: "gqa"
 use_flash_attn: True
 
 compression_block_size: 16
