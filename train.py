@@ -33,7 +33,8 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
     if rank == 0:
         model.eval()
         base_model = model.module if hasattr(model, "module") else model
-        context_size = base_model.pos_emb.weight.shape[0]
+        # Use configured max sequence length instead of pos_emb for models using RoPE
+        context_size = base_model.max_seq_len if hasattr(base_model, 'max_seq_len') else base_model.cfg.get('max_seq_length', 4096)
         encoded = tokenizer.encode(start_context)
         encoded = torch.tensor(
             encoded, dtype=torch.long, device=device
