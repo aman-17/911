@@ -129,6 +129,7 @@ class GroupedQueryAttention(nn.Module):
                 dropout_p=0.0,
                 is_causal=True,
             )
+            context_vec = context_vec.transpose(1, 2).reshape(b, num_tokens, self.d_out)
         else:
             attn_scores = queries @ keys.transpose(2, 3)
             T_q = queries.shape[-2]
