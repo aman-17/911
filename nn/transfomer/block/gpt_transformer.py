@@ -67,6 +67,7 @@ class GPTTransformerBlock(nn.Module):
                 qkv_bias=cfg["qkv_bias"],
                 use_rope=cfg["rope"],
                 use_flash_attn=cfg.get("use_flash_attn", True),
+                use_cache=cfg.get("use_cache", False),
             )
 
         self.ff = FeedForward(cfg)

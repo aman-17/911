@@ -22,6 +22,7 @@ class MultiHeadAttention(nn.Module):
         qkv_bias: bool = False,
         use_rope: bool = True,
         use_flash_attn: bool = True,
+        use_cache: bool = False,
     ):
         super().__init__()
         assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
@@ -46,6 +47,7 @@ class MultiHeadAttention(nn.Module):
             "mask", torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1)
         )
         self.window_size = window_size or self.max_seq_len
+        self.use_cache = use_cache
         self.register_buffer("cache_k", None, persistent=False)
         self.register_buffer("cache_v", None, persistent=False)
 
