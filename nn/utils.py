@@ -44,18 +44,33 @@ def generate_text_simple(
     device = next(model.parameters()).device
     idx = idx.to(device).unsqueeze(0)
 
-    for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_size:]
+    # for _ in range(max_new_tokens):
+    #     idx_cond = idx[:, -context_size:]
 
-        with torch.no_grad():
-            # if use_cache:
-            #     model.reset_kv_cache()
-            #     logits = model(idx_cond, use_cache=True)
-            # else:
-            #     logits = model(idx_cond, use_cache=False)
-            logits = model(idx_cond)
-            logits = logits[:, -1, :]
-            probas = torch.softmax(logits, dim=-1)
-            idx_next = torch.argmax(probas, dim=-1, keepdim=True)
-            idx = torch.cat((idx, idx_next), dim=1)
+    #     with torch.no_grad():
+    #         # if use_cache:
+    #         #     model.reset_kv_cache()
+    #         #     logits = model(idx_cond, use_cache=True)
+    #         # else:
+    #         #     logits = model(idx_cond, use_cache=False)
+    #         logits = model(idx_cond)
+    #         logits = logits[:, -1, :]
+    #         probas = torch.softmax(logits, dim=-1)
+    #         idx_next = torch.argmax(probas, dim=-1, keepdim=True)
+    #         idx = torch.cat((idx, idx_next), dim=1)
+
+    with torch.no_grad():
+        if use_cache:
+            model.reset_kv_cache()
+            logits = model(idx[:, -context_size:], use_cache=True)
+
+            for _ in range(max_new_tokens):
+                next_idx = logits[:, -1].argmax(dim=-1, keepdim=True)
+                idx = torch.cat([idx, next_idx], dim=1)
+                logits = model(next_idx, use_cache=True)
+        else:
+            for _ in range(max_new_tokens):
+                logits = model(idx[:, -context_size:], use_cache=False)
+                next_idx = logits[:, -1].argmax(dim=-1, keepdim=True)
+                idx = torch.cat([idx, next_idx], dim=1)
     return idx[0].cpu().tolist()

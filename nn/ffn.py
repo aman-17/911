@@ -27,6 +27,7 @@ class FeedForward(nn.Module):
         x = x.to(self.dtype)
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
+
 class Qwen3FeedForward(nn.Module):
     def __init__(self, cfg):
         super().__init__()

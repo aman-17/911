@@ -26,6 +26,7 @@ class GPTModel(nn.Module):
             cfg["emb_dim"], cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"])
         )
         self.apply(self._init_weights)
+        self.use_cache = cfg.get("use_cache", True)
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -38,16 +39,33 @@ class GPTModel(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, in_idx):
+    def forward(self, in_idx, use_cache=True):
         batch_size, seq_len = in_idx.shape
         tok_embeds = self.tok_emb(in_idx)
-        pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))
+        # pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))
+        if use_cache:
+            pos_ids = torch.arange(self.ptr_current_pos, self.ptr_current_pos + seq_len, device=in_idx.device, dtype=torch.long)
+            self.ptr_current_pos += seq_len
+        else:
+            pos_ids = torch.arange(0, seq_len, device=in_idx.device, dtype=torch.long)
+        pos_embeds = self.pos_emb(pos_ids).unsqueeze(0)
+
+
         x = tok_embeds + pos_embeds
         x = self.drop_emb(x)
-        x = self.trf_blocks(x)
+        # x = self.trf_blocks(x)
+
+        for blk in self.trf_blocks:
+            x = blk(x, use_cache=use_cache)
+
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits
+    
+    def reset_kv_cache(self):
+        for blk in self.trf_blocks:
+            blk.att.reset_cache()
+        self.ptr_current_pos = 0
 
 
 class nGPTModel(nn.Module):

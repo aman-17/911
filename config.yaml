@@ -1,4 +1,4 @@
-vocab_size: 151936
+vocab_size: 50297
 max_seq_length: 4096
 seq_length: 4096
 
@@ -47,6 +47,7 @@ model:
       n_layers: 12
       hidden_dim: 3072
       n_kv_heads: 12
+      use_cache: True
     
     gpt2_medium:
       type: "gpt2"
@@ -125,7 +126,7 @@ model:
       window_size: 512
       rope_base: 1000000
 
-  active: "qwen3_0_6B"
+  active: "gpt2_small"
 
 
 print_config: True
