@@ -111,5 +111,3 @@ class nanoGPTFeedForward(nn.Module):
     def forward(self, x):
         x = x.to(self.dtype)
         return self.layers(x)
-    
-

@@ -44,12 +44,16 @@ class GPTModel(nn.Module):
         tok_embeds = self.tok_emb(in_idx)
         # pos_embeds = self.pos_emb(torch.arange(seq_len, device=in_idx.device))
         if use_cache:
-            pos_ids = torch.arange(self.ptr_current_pos, self.ptr_current_pos + seq_len, device=in_idx.device, dtype=torch.long)
+            pos_ids = torch.arange(
+                self.ptr_current_pos,
+                self.ptr_current_pos + seq_len,
+                device=in_idx.device,
+                dtype=torch.long,
+            )
             self.ptr_current_pos += seq_len
         else:
             pos_ids = torch.arange(0, seq_len, device=in_idx.device, dtype=torch.long)
         pos_embeds = self.pos_emb(pos_ids).unsqueeze(0)
-
 
         x = tok_embeds + pos_embeds
         x = self.drop_emb(x)
@@ -61,7 +65,7 @@ class GPTModel(nn.Module):
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits
-    
+
     def reset_kv_cache(self):
         for blk in self.trf_blocks:
             blk.att.reset_cache()

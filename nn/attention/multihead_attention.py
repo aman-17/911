@@ -51,7 +51,6 @@ class MultiHeadAttention(nn.Module):
         self.register_buffer("cache_k", None, persistent=False)
         self.register_buffer("cache_v", None, persistent=False)
 
-
     def forward(self, x, use_cache: bool = False):
         x = x.to(self.dtype)
         batch_size, num_tokens, d_in = x.shape
@@ -79,9 +78,13 @@ class MultiHeadAttention(nn.Module):
 
         if use_cache:
             if self.cache_k is None or self.cache_k.size(0) != batch_size:
-                self.cache_k = torch.zeros(batch_size, self.num_heads,
-                                           self.window_size, self.head_dim,
-                                           device=x.device)
+                self.cache_k = torch.zeros(
+                    batch_size,
+                    self.num_heads,
+                    self.window_size,
+                    self.head_dim,
+                    device=x.device,
+                )
                 self.cache_v = torch.zeros_like(self.cache_k)
                 self.ptr_cur = 0  # pointer to next free slot
 
@@ -89,16 +92,20 @@ class MultiHeadAttention(nn.Module):
             if self.ptr_cur + num_tokens > self.window_size:
                 overflow = self.ptr_cur + num_tokens - self.window_size
                 # shift everything left by `overflow` (cheap view-copy)
-                self.cache_k[:, :, :-overflow, :] = self.cache_k[:, :, overflow:, :].clone()
-                self.cache_v[:, :, :-overflow, :] = self.cache_v[:, :, overflow:, :].clone()
+                self.cache_k[:, :, :-overflow, :] = self.cache_k[
+                    :, :, overflow:, :
+                ].clone()
+                self.cache_v[:, :, :-overflow, :] = self.cache_v[
+                    :, :, overflow:, :
+                ].clone()
                 self.ptr_cur -= overflow  # pointer after shift
 
-            self.cache_k[:, :, self.ptr_cur:self.ptr_cur + num_tokens, :] = keys
-            self.cache_v[:, :, self.ptr_cur:self.ptr_cur + num_tokens, :] = values
+            self.cache_k[:, :, self.ptr_cur : self.ptr_cur + num_tokens, :] = keys
+            self.cache_v[:, :, self.ptr_cur : self.ptr_cur + num_tokens, :] = values
             self.ptr_cur += num_tokens
 
-            keys = self.cache_k[:, :, :self.ptr_cur, :]
-            values = self.cache_v[:, :, :self.ptr_cur, :]
+            keys = self.cache_k[:, :, : self.ptr_cur, :]
+            values = self.cache_v[:, :, : self.ptr_cur, :]
         else:
             keys, values = keys, values
             self.ptr_cur = 0  # keep pointer sane if you interleave modes
@@ -123,26 +130,35 @@ class MultiHeadAttention(nn.Module):
             )  # attn_scores shape: (2, 2, 6, 6).
             K = attn_scores.size(-1)
             if num_tokens == K:
-                causal_mask = torch.triu(torch.ones(num_tokens, K, device=x.device, dtype=torch.bool), diagonal=1)
+                causal_mask = torch.triu(
+                    torch.ones(num_tokens, K, device=x.device, dtype=torch.bool),
+                    diagonal=1,
+                )
             else:
                 # Cached: need to offset the diagonal by (K − num_tokens)
-                offset = K - num_tokens  # number of tokens already in cache before this chunk
-                row_idx = torch.arange(num_tokens, device=x.device).unsqueeze(1)  # (num_tokens, 1)
-                col_idx = torch.arange(K, device=x.device).unsqueeze(0)           # (1, K)
-                causal_mask = row_idx + offset < col_idx                          # True where j > i+offset
+                offset = (
+                    K - num_tokens
+                )  # number of tokens already in cache before this chunk
+                row_idx = torch.arange(num_tokens, device=x.device).unsqueeze(
+                    1
+                )  # (num_tokens, 1)
+                col_idx = torch.arange(K, device=x.device).unsqueeze(0)  # (1, K)
+                causal_mask = row_idx + offset < col_idx  # True where j > i+offset
 
             attn_scores.masked_fill_(causal_mask.unsqueeze(0).unsqueeze(0), -torch.inf)
 
-            attn_weights = torch.softmax(attn_scores / keys.shape[-1]**0.5, dim=-1)
+            attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim=-1)
             attn_weights = self.dropout(attn_weights)
             context_vec = (attn_weights @ values).transpose(1, 2)
 
             # Combine heads, where self.d_out = self.num_heads * self.head_dim
-            context_vec = context_vec.contiguous().view(batch_size, num_tokens, self.d_out)
+            context_vec = context_vec.contiguous().view(
+                batch_size, num_tokens, self.d_out
+            )
             context_vec = self.out_proj(context_vec)
 
         return context_vec
-    
+
     def reset_cache(self):
         self.cache_k, self.cache_v = None, None
 

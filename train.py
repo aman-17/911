@@ -11,8 +11,8 @@ from config_utils import load_config
 from data.dataset_utils import create_train_loader
 from nn.loss_function import calc_loss_batch, calc_total_loss
 from nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
-from nn.transfomer.model.qwen_model import Qwen3Model
 from nn.transfomer.model.llama_model import LlamaModel
+from nn.transfomer.model.qwen_model import Qwen3Model
 from nn.utils import generate_text_simple
 
 
@@ -34,7 +34,11 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
     if rank == 0:
         model.eval()
         base_model = model.module if hasattr(model, "module") else model
-        context_size = base_model.max_seq_len if hasattr(base_model, 'max_seq_len') else base_model.cfg.get('max_seq_length', 4096)
+        context_size = (
+            base_model.max_seq_len
+            if hasattr(base_model, "max_seq_len")
+            else base_model.cfg.get("max_seq_length", 4096)
+        )
         encoded = tokenizer.encode(start_context)
         encoded = torch.tensor(
             encoded, dtype=torch.long, device=device
@@ -159,14 +163,14 @@ def train_911(
                     current_time = time.time()
                     time_elapsed = current_time - last_eval_time
                     tokens_processed = tokens_seen - last_eval_tokens
-                    
+
                     if time_elapsed > 0:
                         tps = tokens_processed / time_elapsed
                     else:
                         tps = 0.0
                     last_eval_time = current_time
                     last_eval_tokens = tokens_seen
-                    
+
                     train_ce_losses.append(avg_train_ce_loss)
                     train_z_losses.append(avg_train_z_loss)
                     track_tokens_seen.append(tokens_seen)

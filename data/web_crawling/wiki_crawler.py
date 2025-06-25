@@ -33,7 +33,7 @@ def parse_wiki_page(url):
         return "\n\n".join(clean_text)
 
     except Exception as e:
-        return None
+        return e
 
 
 def save_to_file(text, url, output_dir="."):
@@ -50,7 +50,7 @@ def save_to_file(text, url, output_dir="."):
             f.write(text)
         return True
     except Exception as e:
-        return False
+        return e
 
 
 def main():

@@ -1,4 +1,3 @@
-import math
 from typing import Optional
 
 import torch
@@ -119,7 +118,7 @@ class GroupedQueryAttention(nn.Module):
             self.ptr = end
         else:
             keys, values = keys_new, values_new
-            
+
         if self.use_flash_attn:
             context_vec = F.scaled_dot_product_attention(
                 queries,
@@ -136,13 +135,16 @@ class GroupedQueryAttention(nn.Module):
             T_k = keys.shape[-2]
             if not use_cache or T_q > 1:
                 causal_mask = torch.triu(
-                    torch.ones((T_q, T_k), device=x.device, dtype=torch.bool), diagonal=1
+                    torch.ones((T_q, T_k), device=x.device, dtype=torch.bool),
+                    diagonal=1,
                 )
                 attn_scores = attn_scores.masked_fill(causal_mask, -torch.inf)
             attn_weights = torch.softmax(attn_scores / self.head_dim**0.5, dim=-1)
             context_vec = (
-                (attn_weights @ values).transpose(1, 2).reshape(b, num_tokens, self.d_out)
-                )
+                (attn_weights @ values)
+                .transpose(1, 2)
+                .reshape(b, num_tokens, self.d_out)
+            )
         return self.out_proj(context_vec)
 
     def reset_cache(self):
