@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m venv .venv
           . .venv/bin/activate
-          pip install -e [workflow]
+          pip install -e .
 
       - name: ${{ matrix.task.name }}
         run: |
