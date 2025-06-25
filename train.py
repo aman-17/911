@@ -1,4 +1,5 @@
 import os
+import time
 
 import torch
 import torch.distributed as dist
@@ -33,7 +34,6 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
     if rank == 0:
         model.eval()
         base_model = model.module if hasattr(model, "module") else model
-        # Use configured max sequence length instead of pos_emb for models using RoPE
         context_size = base_model.max_seq_len if hasattr(base_model, 'max_seq_len') else base_model.cfg.get('max_seq_length', 4096)
         encoded = tokenizer.encode(start_context)
         encoded = torch.tensor(
@@ -100,6 +100,9 @@ def train_911(
     train_ce_losses, train_z_losses, track_tokens_seen = [], [], []
     tokens_seen = 0
     global_step = 0
+    start_time = time.time()
+    last_eval_time = start_time
+    last_eval_tokens = 0
 
     for epoch in range(num_epochs):
         model.train()
@@ -153,6 +156,17 @@ def train_911(
                 )
 
                 if rank == 0:
+                    current_time = time.time()
+                    time_elapsed = current_time - last_eval_time
+                    tokens_processed = tokens_seen - last_eval_tokens
+                    
+                    if time_elapsed > 0:
+                        tps = tokens_processed / time_elapsed
+                    else:
+                        tps = 0.0
+                    last_eval_time = current_time
+                    last_eval_tokens = tokens_seen
+                    
                     train_ce_losses.append(avg_train_ce_loss)
                     train_z_losses.append(avg_train_z_loss)
                     track_tokens_seen.append(tokens_seen)
@@ -164,6 +178,7 @@ def train_911(
                             "tokens_seen": tokens_seen,
                             "epoch": epoch,
                             "global_step": global_step,
+                            "throughput_tps": tps,
                         }
                     )
                 generate_and_print_sample(model, tokenizer, start_context, device, rank)
