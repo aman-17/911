@@ -1,22 +1,15 @@
 name: Style and Lint
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   checks:
     name: ${{ matrix.task.name }}
-    runs-on: [ubuntu-latest]
-    timeout-minutes: 10
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -30,10 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python environment
-        uses: ./.github/actions/setup-venv
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt
 
       - name: ${{ matrix.task.name }}
         run: |
@@ -44,4 +43,4 @@ jobs:
         if: always()
         run: |
           . .venv/bin/activate
-          pip uninstall -y 911
+          pip uninstall -y 911 || true
