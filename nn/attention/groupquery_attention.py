@@ -23,9 +23,7 @@ class GroupedQueryAttention(nn.Module):
         use_flash_attn: bool = True,
     ):
         super().__init__()
-        assert (
-            num_heads % num_kv_groups == 0
-        ), "num_heads must be divisible by num_kv_groups"
+        assert num_heads % num_kv_groups == 0, "num_heads must be divisible by num_kv_groups"
         assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
         self.num_heads = num_heads
         self.num_kv_groups = num_kv_groups
@@ -34,12 +32,8 @@ class GroupedQueryAttention(nn.Module):
         self.d_out = self.num_heads * self.head_dim
         self.max_seq_len = max_seq_len
         self.w_query = nn.Linear(d_in, self.d_out, bias=False, dtype=dtype)
-        self.w_key = nn.Linear(
-            d_in, num_kv_groups * self.head_dim, bias=False, dtype=dtype
-        )
-        self.w_value = nn.Linear(
-            d_in, num_kv_groups * self.head_dim, bias=False, dtype=dtype
-        )
+        self.w_key = nn.Linear(d_in, num_kv_groups * self.head_dim, bias=False, dtype=dtype)
+        self.w_value = nn.Linear(d_in, num_kv_groups * self.head_dim, bias=False, dtype=dtype)
         self.out_proj = nn.Linear(self.d_out, d_in, bias=False, dtype=dtype)
         if qk_norm:
             self.q_norm = Qwen3RMSNorm(self.head_dim, eps=1e-6)
@@ -48,9 +42,7 @@ class GroupedQueryAttention(nn.Module):
             self.q_norm = self.k_norm = None
         self.use_rope = use_rope
         if use_rope:
-            self.rope = RotaryPositionalEmbeddings(
-                dim=self.head_dim, max_seq_len=self.max_seq_len
-            )
+            self.rope = RotaryPositionalEmbeddings(dim=self.head_dim, max_seq_len=self.max_seq_len)
         self.window_size = window_size or self.max_seq_len
         self.use_flash_attn = use_flash_attn
         self.register_buffer("cache_k", None, persistent=False)
@@ -63,15 +55,9 @@ class GroupedQueryAttention(nn.Module):
         queries = self.w_query(x)  # (b, num_tokens, num_heads * head_dim)
         keys_new = self.w_key(x)  # (b, num_tokens, num_kv_groups * head_dim)
         values_new = self.w_value(x)  # (b, num_tokens, num_kv_groups * head_dim)
-        queries = queries.view(b, num_tokens, self.num_heads, self.head_dim).transpose(
-            1, 2
-        )
-        keys_new = keys_new.view(
-            b, num_tokens, self.num_kv_groups, self.head_dim
-        ).transpose(1, 2)
-        values_new = values_new.view(
-            b, num_tokens, self.num_kv_groups, self.head_dim
-        ).transpose(1, 2)
+        queries = queries.view(b, num_tokens, self.num_heads, self.head_dim).transpose(1, 2)
+        keys_new = keys_new.view(b, num_tokens, self.num_kv_groups, self.head_dim).transpose(1, 2)
+        values_new = values_new.view(b, num_tokens, self.num_kv_groups, self.head_dim).transpose(1, 2)
         if self.q_norm:
             queries = self.q_norm(queries)
         if self.k_norm:
@@ -140,11 +126,7 @@ class GroupedQueryAttention(nn.Module):
                 )
                 attn_scores = attn_scores.masked_fill(causal_mask, -torch.inf)
             attn_weights = torch.softmax(attn_scores / self.head_dim**0.5, dim=-1)
-            context_vec = (
-                (attn_weights @ values)
-                .transpose(1, 2)
-                .reshape(b, num_tokens, self.d_out)
-            )
+            context_vec = (attn_weights @ values).transpose(1, 2).reshape(b, num_tokens, self.d_out)
         return self.out_proj(context_vec)
 
     def reset_cache(self):

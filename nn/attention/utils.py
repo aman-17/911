@@ -39,11 +39,7 @@ def precompute_freqs_cis(
         Returns:
             float: The correction dimension based on the input parameters.
         """
-        return (
-            dim
-            * math.log(max_seq_len / (num_rotations * 2 * math.pi))
-            / (2 * math.log(base))
-        )
+        return dim * math.log(max_seq_len / (num_rotations * 2 * math.pi)) / (2 * math.log(base))
 
     def find_correction_range(low_rot, high_rot, dim, base, max_seq_len):
         """
@@ -83,9 +79,7 @@ def precompute_freqs_cis(
         return ramp_func
 
     freq_dim = dim // 2
-    freqs = 1.0 / (
-        theta ** (torch.arange(0, freq_dim * 2, 2, dtype=torch.float32) / dim)
-    )
+    freqs = 1.0 / (theta ** (torch.arange(0, freq_dim * 2, 2, dtype=torch.float32) / dim))
 
     if seq_len > max_seq_len:
         low, high = find_correction_range(beta_fast, beta_slow, dim, theta, max_seq_len)

@@ -40,12 +40,8 @@ class MultiHeadAttention(nn.Module):
         self.max_seq_len = max_seq_len
         self.use_flash_attn = use_flash_attn
         if use_rope:
-            self.rope = RotaryPositionalEmbeddings(
-                dim=self.head_dim, max_seq_len=self.max_seq_len
-            )
-        self.register_buffer(
-            "mask", torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1)
-        )
+            self.rope = RotaryPositionalEmbeddings(dim=self.head_dim, max_seq_len=self.max_seq_len)
+        self.register_buffer("mask", torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1))
         self.window_size = window_size or self.max_seq_len
         self.use_cache = use_cache
         self.register_buffer("cache_k", None, persistent=False)
@@ -59,15 +55,9 @@ class MultiHeadAttention(nn.Module):
         values = self.w_value(x)  # shape (2, 6, 4)
 
         # shape: (batch_size, seq_len, n_heads, head_dim)
-        queries = queries.view(
-            batch_size, num_tokens, self.num_heads, self.head_dim
-        )  # New shape: (2, 6, 2, 2)
-        keys = keys.view(
-            batch_size, num_tokens, self.num_heads, self.head_dim
-        )  # New shape: (2, 6, 2, 2)
-        values = values.view(
-            batch_size, num_tokens, self.num_heads, self.head_dim
-        )  # New shape: (2, 6, 2, 2)
+        queries = queries.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
+        keys = keys.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
+        values = values.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
 
         # This transposes the tensors to bring the num_heads dimension before num_tokens: `SDPA expects this.`
         keys, queries, values = (
@@ -92,12 +82,8 @@ class MultiHeadAttention(nn.Module):
             if self.ptr_cur + num_tokens > self.window_size:
                 overflow = self.ptr_cur + num_tokens - self.window_size
                 # shift everything left by `overflow` (cheap view-copy)
-                self.cache_k[:, :, :-overflow, :] = self.cache_k[
-                    :, :, overflow:, :
-                ].clone()
-                self.cache_v[:, :, :-overflow, :] = self.cache_v[
-                    :, :, overflow:, :
-                ].clone()
+                self.cache_k[:, :, :-overflow, :] = self.cache_k[:, :, overflow:, :].clone()
+                self.cache_v[:, :, :-overflow, :] = self.cache_v[:, :, overflow:, :].clone()
                 self.ptr_cur -= overflow  # pointer after shift
 
             self.cache_k[:, :, self.ptr_cur : self.ptr_cur + num_tokens, :] = keys
@@ -125,9 +111,7 @@ class MultiHeadAttention(nn.Module):
             )
         else:
             # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
-            attn_scores = queries @ keys.transpose(
-                2, 3
-            )  # attn_scores shape: (2, 2, 6, 6).
+            attn_scores = queries @ keys.transpose(2, 3)  # attn_scores shape: (2, 2, 6, 6).
             K = attn_scores.size(-1)
             if num_tokens == K:
                 causal_mask = torch.triu(
@@ -136,12 +120,8 @@ class MultiHeadAttention(nn.Module):
                 )
             else:
                 # Cached: need to offset the diagonal by (K − num_tokens)
-                offset = (
-                    K - num_tokens
-                )  # number of tokens already in cache before this chunk
-                row_idx = torch.arange(num_tokens, device=x.device).unsqueeze(
-                    1
-                )  # (num_tokens, 1)
+                offset = K - num_tokens  # number of tokens already in cache before this chunk
+                row_idx = torch.arange(num_tokens, device=x.device).unsqueeze(1)  # (num_tokens, 1)
                 col_idx = torch.arange(K, device=x.device).unsqueeze(0)  # (1, K)
                 causal_mask = row_idx + offset < col_idx  # True where j > i+offset
 
@@ -152,9 +132,7 @@ class MultiHeadAttention(nn.Module):
             context_vec = (attn_weights @ values).transpose(1, 2)
 
             # Combine heads, where self.d_out = self.num_heads * self.head_dim
-            context_vec = context_vec.contiguous().view(
-                batch_size, num_tokens, self.d_out
-            )
+            context_vec = context_vec.contiguous().view(batch_size, num_tokens, self.d_out)
             context_vec = self.out_proj(context_vec)
 
         return context_vec
@@ -191,20 +169,14 @@ class NormalizedMultiHeadAttention(nn.Module):
         self.use_rope = use_rope
         self.max_seq_len = max_seq_len
         if use_rope:
-            self.rope = RotaryPositionalEmbeddings(
-                dim=self.head_dim, max_seq_len=self.max_seq_len
-            )
-        self.register_buffer(
-            "mask", torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1)
-        )
+            self.rope = RotaryPositionalEmbeddings(dim=self.head_dim, max_seq_len=self.max_seq_len)
+        self.register_buffer("mask", torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1))
         self.sq_init_value = 1.0
         self.sq_init_scaling = 1.0 / math.sqrt(d_in)
         self.sq = nn.Parameter(torch.empty(self.head_dim * self.num_heads, dtype=dtype))
         self.sk_init_value = 1.0
         self.sk_init_scaling = 1.0 / math.sqrt(d_in)
-        self.sk = nn.Parameter(
-            torch.empty(self.head_dim * self.n_kv_heads, dtype=dtype)
-        )
+        self.sk = nn.Parameter(torch.empty(self.head_dim * self.n_kv_heads, dtype=dtype))
 
         self.sqrt_head_dim = math.sqrt(self.head_dim)
         self.reset_parameters()
@@ -229,15 +201,9 @@ class NormalizedMultiHeadAttention(nn.Module):
         keys = sk * keys
 
         # shape: (batch_size, seq_len, n_heads, head_dim)
-        queries = queries.view(
-            batch_size, num_tokens, self.num_heads, self.head_dim
-        )  # New shape: (2, 6, 2, 2)
-        keys = keys.view(
-            batch_size, num_tokens, self.num_heads, self.head_dim
-        )  # New shape: (2, 6, 2, 2)
-        values = values.view(
-            batch_size, num_tokens, self.num_heads, self.head_dim
-        )  # New shape: (2, 6, 2, 2)
+        queries = queries.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
+        keys = keys.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
+        values = values.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
 
         # This transposes the tensors to bring the num_heads dimension before num_tokens: `SDPA expects this.`
         keys, queries, values = (
@@ -253,21 +219,15 @@ class NormalizedMultiHeadAttention(nn.Module):
         # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
         attn_scores = queries @ keys.transpose(2, 3)  # attn_scores shape: (2, 2, 6, 6).
         # Creates a boolean mask to prevent attending to future tokens
-        mask_bool = self.mask.to(torch.bool)[
-            :num_tokens, :num_tokens
-        ]  # mask_bool shape: (6, 6)
+        mask_bool = self.mask.to(torch.bool)[:num_tokens, :num_tokens]  # mask_bool shape: (6, 6)
 
         attn_scores.masked_fill_(mask_bool, -torch.inf)
 
         attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim=-1)
         attn_weights = self.dropout(attn_weights)
         # attn_weights: (2, 2, 6, 6), values: (2, 2, 6, 2)
-        context_vec = (attn_weights @ values).transpose(
-            1, 2
-        )  # context_vec: (2, 6, 2, 2)
-        context_vec = context_vec.contiguous().view(
-            batch_size, num_tokens, self.d_out
-        )  # context_vec shape: (2, 6, 4)
+        context_vec = (attn_weights @ values).transpose(1, 2)  # context_vec: (2, 6, 2, 2)
+        context_vec = context_vec.contiguous().view(batch_size, num_tokens, self.d_out)  # context_vec shape: (2, 6, 4)
         context_vec = self.out_proj(context_vec)
 
         return context_vec

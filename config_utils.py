@@ -41,9 +41,7 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
     print(f"\n{Colors.BOLD}{Colors.BG_BLUE} MODEL CONFIGURATION {Colors.RESET}")
     print(f"{Colors.BOLD}TrainingConfig{Colors.RESET}(")
 
-    print(
-        f"    {Colors.BOLD}{Colors.BLUE}model={Colors.RESET}{Colors.YELLOW}ModelConfig{Colors.RESET}("
-    )
+    print(f"    {Colors.BOLD}{Colors.BLUE}model={Colors.RESET}{Colors.YELLOW}ModelConfig{Colors.RESET}(")
     model_keys = [
         "type",
         "model_arch",
@@ -58,9 +56,7 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
             print_config_value(key, config[key], 8)
     print("    ),")
 
-    print(
-        f"    {Colors.BOLD}{Colors.BLUE}training={Colors.RESET}{Colors.YELLOW}TrainingConfig{Colors.RESET}("
-    )
+    print(f"    {Colors.BOLD}{Colors.BLUE}training={Colors.RESET}{Colors.YELLOW}TrainingConfig{Colors.RESET}(")
     training_keys = [
         "batch_size",
         "num_epochs",
@@ -73,9 +69,7 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
             print_config_value(key, config[key], 8)
     print("    ),")
 
-    print(
-        f"    {Colors.BOLD}{Colors.BLUE}dataset={Colors.RESET}{Colors.YELLOW}DatasetConfig{Colors.RESET}("
-    )
+    print(f"    {Colors.BOLD}{Colors.BLUE}dataset={Colors.RESET}{Colors.YELLOW}DatasetConfig{Colors.RESET}(")
     data_keys = [
         "train_data",
         "vocab_size",
@@ -91,9 +85,7 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
             print_config_value(key, config[key], 8)
     print("    ),")
 
-    print(
-        f"    {Colors.BOLD}{Colors.BLUE}attention={Colors.RESET}{Colors.YELLOW}AttentionConfig{Colors.RESET}("
-    )
+    print(f"    {Colors.BOLD}{Colors.BLUE}attention={Colors.RESET}{Colors.YELLOW}AttentionConfig{Colors.RESET}(")
     attention_keys = [
         "attention",
         "use_flash_attn",
@@ -119,9 +111,7 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
         "beta_slow",
     ]
     if any(key in config for key in rope_keys):
-        print(
-            f"    {Colors.BOLD}{Colors.BLUE}rope={Colors.RESET}{Colors.YELLOW}RoPEConfig{Colors.RESET}("
-        )
+        print(f"    {Colors.BOLD}{Colors.BLUE}rope={Colors.RESET}{Colors.YELLOW}RoPEConfig{Colors.RESET}(")
         for key in rope_keys:
             if key in config:
                 print_config_value(key, config[key], 8)
@@ -137,9 +127,7 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
         "kv_lora_rank",
     ]
     if any(key in config for key in mla_keys):
-        print(
-            f"    {Colors.BOLD}{Colors.BLUE}mla={Colors.RESET}{Colors.YELLOW}MLAConfig{Colors.RESET}("
-        )
+        print(f"    {Colors.BOLD}{Colors.BLUE}mla={Colors.RESET}{Colors.YELLOW}MLAConfig{Colors.RESET}(")
         for key in mla_keys:
             if key in config and config[key] is not None:
                 print_config_value(key, config[key], 8)
@@ -153,14 +141,9 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
             emb_params *= 2
 
         if config.get("hidden_dim"):
-            block_params = config["n_layers"] * (
-                4 * config["emb_dim"] * config["emb_dim"]
-                + 2 * config["emb_dim"] * config["hidden_dim"]
-            )
+            block_params = config["n_layers"] * (4 * config["emb_dim"] * config["emb_dim"] + 2 * config["emb_dim"] * config["hidden_dim"])
         else:
-            block_params = (
-                config["n_layers"] * 12 * config["emb_dim"] * config["emb_dim"]
-            )
+            block_params = config["n_layers"] * 12 * config["emb_dim"] * config["emb_dim"]
 
         total_params = emb_params + block_params
         non_emb_params = total_params - emb_params
@@ -171,9 +154,7 @@ def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
         print(
             f"{Colors.CYAN}Non-embedding parameters:{Colors.RESET} {Colors.MAGENTA}{non_emb_params:,}{Colors.RESET} ({Colors.MAGENTA}{non_emb_params:,}{Colors.RESET} active)"
         )
-        print(
-            f"{Colors.CYAN}Active variant:{Colors.RESET}           {Colors.GREEN}'{variant_name}'{Colors.RESET}"
-        )
+        print(f"{Colors.CYAN}Active variant:{Colors.RESET}           {Colors.GREEN}'{variant_name}'{Colors.RESET}")
 
 
 def load_config(config_path: str = "config.yaml", model_variant: str = None):
@@ -196,9 +177,7 @@ def load_config(config_path: str = "config.yaml", model_variant: str = None):
 
     if active_variant not in full_config["model"]["variants"]:
         available = list(full_config["model"]["variants"].keys())
-        raise ValueError(
-            f"Model variant '{active_variant}' not found. Available: {available}"
-        )
+        raise ValueError(f"Model variant '{active_variant}' not found. Available: {available}")
 
     model_config = full_config["model"]["variants"][active_variant]
     train_config = {**full_config, **model_config}

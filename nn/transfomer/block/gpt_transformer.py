@@ -14,9 +14,7 @@ class GPTTransformerBlock(nn.Module):
         n_heads = cfg["n_heads"]
         n_kv_heads = cfg.get("n_kv_heads", n_heads)
         if n_heads % n_kv_heads != 0:
-            raise ValueError(
-                f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})"
-            )
+            raise ValueError(f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})")
         if cfg.get("attention", "mha") == "nsa":
             self.att = NativeSparseAttention(
                 d_in=cfg["emb_dim"],

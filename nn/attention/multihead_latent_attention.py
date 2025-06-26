@@ -39,9 +39,7 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     if n_rep == 1:
         return hidden_states
     batch, seq_len, n_kv_heads, head_dim = hidden_states.shape
-    hidden_states = hidden_states[:, :, :, None, :].expand(
-        batch, seq_len, n_kv_heads, n_rep, head_dim
-    )
+    hidden_states = hidden_states[:, :, :, None, :].expand(batch, seq_len, n_kv_heads, n_rep, head_dim)
     return hidden_states.reshape(batch, seq_len, n_kv_heads * n_rep, head_dim)
 
 
@@ -82,11 +80,7 @@ class MultiHeadLatentAttention(nn.Module):
         self.head_dim = d_out // num_heads
         self.v_head_dim = v_head_dim if v_head_dim is not None else self.head_dim
         self.qk_rope_head_dim = qk_rope_head_dim
-        self.qk_nope_head_dim = (
-            qk_nope_head_dim
-            if qk_nope_head_dim is not None
-            else (self.head_dim - qk_rope_head_dim)
-        )
+        self.qk_nope_head_dim = qk_nope_head_dim if qk_nope_head_dim is not None else (self.head_dim - qk_rope_head_dim)
         self.qk_head_dim = self.qk_nope_head_dim + self.qk_rope_head_dim
         self.q_lora_rank = q_lora_rank if q_lora_rank else 0
         self.kv_lora_rank = kv_lora_rank if kv_lora_rank is not None else d_in // 2
@@ -97,9 +91,7 @@ class MultiHeadLatentAttention(nn.Module):
         self.attn_impl = attn_impl
 
         if self.q_lora_rank == 0:
-            self.wq = nn.Linear(
-                d_in, self.num_heads * self.qk_head_dim, dtype=dtype, bias=qkv_bias
-            )
+            self.wq = nn.Linear(d_in, self.num_heads * self.qk_head_dim, dtype=dtype, bias=qkv_bias)
         else:
             self.wq_a = nn.Linear(d_in, self.q_lora_rank, dtype=dtype, bias=False)
             self.q_norm = RMSNorm(self.q_lora_rank, dtype=dtype)
@@ -109,9 +101,7 @@ class MultiHeadLatentAttention(nn.Module):
                 dtype=dtype,
                 bias=qkv_bias,
             )
-        self.wkv_a = nn.Linear(
-            d_in, self.kv_lora_rank + self.qk_rope_head_dim, dtype=dtype, bias=False
-        )
+        self.wkv_a = nn.Linear(d_in, self.kv_lora_rank + self.qk_rope_head_dim, dtype=dtype, bias=False)
         self.kv_norm = RMSNorm(self.kv_lora_rank, dtype=dtype)
         self.wkv_b = nn.Linear(
             self.kv_lora_rank,
@@ -119,9 +109,7 @@ class MultiHeadLatentAttention(nn.Module):
             dtype=dtype,
             bias=qkv_bias,
         )
-        self.wo = nn.Linear(
-            self.num_heads * self.v_head_dim, d_out, dtype=dtype, bias=False
-        )
+        self.wo = nn.Linear(self.num_heads * self.v_head_dim, d_out, dtype=dtype, bias=False)
         self.softmax_scale = self.qk_head_dim**-0.5
         self.softcap = softcap
         if max_seq_len > original_seq_len:
@@ -164,9 +152,7 @@ class MultiHeadLatentAttention(nn.Module):
         self.use_rope = use_rope
 
         if use_rope:
-            self.rope = RotaryPositionalEmbeddings(
-                dim=self.qk_rope_head_dim, max_seq_len=self.max_seq_len
-            )
+            self.rope = RotaryPositionalEmbeddings(dim=self.qk_rope_head_dim, max_seq_len=self.max_seq_len)
         self.register_buffer(
             "causal_mask",
             torch.triu(torch.ones(self.max_seq_len, self.max_seq_len), diagonal=1),
@@ -189,14 +175,10 @@ class MultiHeadLatentAttention(nn.Module):
             q = self.wq_b(self.q_norm(self.wq_a(x)))
 
         print(f"MLA Forward - Q shape after projection: {q.shape}")
-        print(
-            f"MLA Forward - Reshaping to: [{batch_size}, {seq_len}, {self.n_local_heads}, {self.qk_head_dim}]"
-        )
+        print(f"MLA Forward - Reshaping to: [{batch_size}, {seq_len}, {self.n_local_heads}, {self.qk_head_dim}]")
 
         q = q.view(batch_size, seq_len, self.n_local_heads, self.qk_head_dim)
-        q_nope, q_pe = torch.split(
-            q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1
-        )
+        q_nope, q_pe = torch.split(q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
         q_pe = apply_rotary_emb(q_pe, freqs_cis)
 
         kv = self.wkv_a(x)
@@ -212,122 +194,70 @@ class MultiHeadLatentAttention(nn.Module):
                 self.n_local_heads,
                 self.qk_nope_head_dim + self.v_head_dim,
             )
-            k_nope, v = torch.split(
-                kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1
-            )
+            k_nope, v = torch.split(kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1)
             k = torch.cat([k_nope, k_pe.expand(-1, -1, self.n_local_heads, -1)], dim=-1)
 
             self.k_cache[:batch_size, start_pos:end_pos] = k
             self.v_cache[:batch_size, start_pos:end_pos] = v
 
             q_reshaped = q.transpose(1, 2)  # [batch_size, n_heads, seq_len, head_dim]
-            k_cached = self.k_cache[:batch_size, :end_pos].transpose(
-                1, 2
-            )  # [batch_size, n_heads, end_pos, head_dim]
-            scores = torch.matmul(
-                q_reshaped, k_cached.transpose(-2, -1)
-            )  # [batch_size, n_heads, seq_len, end_pos]
-            scores = (
-                scores.transpose(1, 2) * self.softmax_scale
-            )  # [batch_size, seq_len, n_heads, end_pos]
+            k_cached = self.k_cache[:batch_size, :end_pos].transpose(1, 2)  # [batch_size, n_heads, end_pos, head_dim]
+            scores = torch.matmul(q_reshaped, k_cached.transpose(-2, -1))  # [batch_size, n_heads, seq_len, end_pos]
+            scores = scores.transpose(1, 2) * self.softmax_scale  # [batch_size, seq_len, n_heads, end_pos]
 
         else:
             # wkv_b = self.wkv_b.weight if self.wkv_b.scale is None else weight_dequant(self.wkv_b.weight, self.wkv_b.scale, block_size)
             wkv_b = self.wkv_b.weight
             wkv_b = wkv_b.view(self.n_local_heads, -1, self.kv_lora_rank)
 
-            q_nope_reshaped = q_nope.reshape(
-                batch_size * seq_len, self.n_local_heads, self.qk_nope_head_dim
-            )
-            wkv_b_q = wkv_b[
-                :, : self.qk_nope_head_dim
-            ]  # [n_heads, qk_nope_head_dim, kv_lora_rank]
+            q_nope_reshaped = q_nope.reshape(batch_size * seq_len, self.n_local_heads, self.qk_nope_head_dim)
+            wkv_b_q = wkv_b[:, : self.qk_nope_head_dim]  # [n_heads, qk_nope_head_dim, kv_lora_rank]
 
             q_nope_proj = []
             for h in range(self.n_local_heads):
                 # [batch_size*seq_len, qk_nope_head_dim] @ [qk_nope_head_dim, kv_lora_rank]
                 proj = torch.matmul(q_nope_reshaped[:, h], wkv_b_q[h])
                 q_nope_proj.append(proj)
-            q_nope = torch.stack(q_nope_proj, dim=1).reshape(
-                batch_size, seq_len, self.n_local_heads, self.kv_lora_rank
-            )
+            q_nope = torch.stack(q_nope_proj, dim=1).reshape(batch_size, seq_len, self.n_local_heads, self.kv_lora_rank)
 
             self.kv_cache[:batch_size, start_pos:end_pos] = self.kv_norm(kv)
             self.pe_cache[:batch_size, start_pos:end_pos] = k_pe.squeeze(2)
 
-            q_nope_reshaped = q_nope.transpose(
-                1, 2
-            )  # [batch_size, n_heads, seq_len, kv_lora_rank]
-            kv_cached = self.kv_cache[
-                :batch_size, :end_pos
-            ]  # [batch_size, end_pos, kv_lora_rank]
-            kv_cached = kv_cached.unsqueeze(1).expand(
-                -1, self.n_local_heads, -1, -1
-            )  # [batch_size, n_heads, end_pos, kv_lora_rank]
-            scores1 = torch.matmul(
-                q_nope_reshaped, kv_cached.transpose(-2, -1)
-            )  # [batch_size, n_heads, seq_len, end_pos]
-            q_pe_reshaped = q_pe.transpose(
-                1, 2
-            )  # [batch_size, n_heads, seq_len, rope_head_dim]
-            pe_cached = self.pe_cache[
-                :batch_size, :end_pos
-            ]  # [batch_size, end_pos, rope_head_dim]
-            pe_cached = pe_cached.unsqueeze(1).expand(
-                -1, self.n_local_heads, -1, -1
-            )  # [batch_size, n_heads, end_pos, rope_head_dim]
-            scores2 = torch.matmul(
-                q_pe_reshaped, pe_cached.transpose(-2, -1)
-            )  # [batch_size, n_heads, seq_len, end_pos]
-            scores = (scores1 + scores2).transpose(
-                1, 2
-            ) * self.softmax_scale  # [batch_size, seq_len, n_heads, end_pos]
+            q_nope_reshaped = q_nope.transpose(1, 2)  # [batch_size, n_heads, seq_len, kv_lora_rank]
+            kv_cached = self.kv_cache[:batch_size, :end_pos]  # [batch_size, end_pos, kv_lora_rank]
+            kv_cached = kv_cached.unsqueeze(1).expand(-1, self.n_local_heads, -1, -1)  # [batch_size, n_heads, end_pos, kv_lora_rank]
+            scores1 = torch.matmul(q_nope_reshaped, kv_cached.transpose(-2, -1))  # [batch_size, n_heads, seq_len, end_pos]
+            q_pe_reshaped = q_pe.transpose(1, 2)  # [batch_size, n_heads, seq_len, rope_head_dim]
+            pe_cached = self.pe_cache[:batch_size, :end_pos]  # [batch_size, end_pos, rope_head_dim]
+            pe_cached = pe_cached.unsqueeze(1).expand(-1, self.n_local_heads, -1, -1)  # [batch_size, n_heads, end_pos, rope_head_dim]
+            scores2 = torch.matmul(q_pe_reshaped, pe_cached.transpose(-2, -1))  # [batch_size, n_heads, seq_len, end_pos]
+            scores = (scores1 + scores2).transpose(1, 2) * self.softmax_scale  # [batch_size, seq_len, n_heads, end_pos]
 
         if mask is not None:
             scores += mask.unsqueeze(1)
         scores = scores.softmax(dim=-1, dtype=torch.float32).type_as(x)
 
         if self.attn_impl == "naive":
-            scores_reshaped = scores.transpose(
-                1, 2
-            )  # [batch_size, n_heads, seq_len, end_pos]
-            v_cached = self.v_cache[:batch_size, :end_pos].transpose(
-                1, 2
-            )  # [batch_size, n_heads, end_pos, v_head_dim]
-            x = torch.matmul(
-                scores_reshaped, v_cached
-            )  # [batch_size, n_heads, seq_len, v_head_dim]
+            scores_reshaped = scores.transpose(1, 2)  # [batch_size, n_heads, seq_len, end_pos]
+            v_cached = self.v_cache[:batch_size, :end_pos].transpose(1, 2)  # [batch_size, n_heads, end_pos, v_head_dim]
+            x = torch.matmul(scores_reshaped, v_cached)  # [batch_size, n_heads, seq_len, v_head_dim]
             x = x.transpose(1, 2)  # [batch_size, seq_len, n_heads, v_head_dim]
 
         else:
-            scores_reshaped = scores.transpose(
-                1, 2
-            )  # [batch_size, n_heads, seq_len, end_pos]
-            kv_cached = self.kv_cache[
-                :batch_size, :end_pos
-            ]  # [batch_size, end_pos, kv_lora_rank]
-            kv_cached = kv_cached.unsqueeze(1).expand(
-                -1, self.n_local_heads, -1, -1
-            )  # [batch_size, n_heads, end_pos, kv_lora_rank]
-            x = torch.matmul(
-                scores_reshaped, kv_cached
-            )  # [batch_size, n_heads, seq_len, kv_lora_rank]
+            scores_reshaped = scores.transpose(1, 2)  # [batch_size, n_heads, seq_len, end_pos]
+            kv_cached = self.kv_cache[:batch_size, :end_pos]  # [batch_size, end_pos, kv_lora_rank]
+            kv_cached = kv_cached.unsqueeze(1).expand(-1, self.n_local_heads, -1, -1)  # [batch_size, n_heads, end_pos, kv_lora_rank]
+            x = torch.matmul(scores_reshaped, kv_cached)  # [batch_size, n_heads, seq_len, kv_lora_rank]
             x = x.transpose(1, 2)  # [batch_size, seq_len, n_heads, kv_lora_rank]
-            x_reshaped = x.reshape(
-                batch_size * seq_len, self.n_local_heads, self.kv_lora_rank
-            )
-            wkv_b_v = wkv_b[
-                :, -self.v_head_dim :
-            ]  # [n_heads, v_head_dim, kv_lora_rank]
+            x_reshaped = x.reshape(batch_size * seq_len, self.n_local_heads, self.kv_lora_rank)
+            wkv_b_v = wkv_b[:, -self.v_head_dim :]  # [n_heads, v_head_dim, kv_lora_rank]
 
             x_proj = []
             for h in range(self.n_local_heads):
                 # [batch_size*seq_len, kv_lora_rank] @ [kv_lora_rank, v_head_dim]
                 proj = torch.matmul(x_reshaped[:, h], wkv_b_v[h].transpose(0, 1))
                 x_proj.append(proj)
-            x = torch.stack(x_proj, dim=1).reshape(
-                batch_size, seq_len, self.n_local_heads, self.v_head_dim
-            )
+            x = torch.stack(x_proj, dim=1).reshape(batch_size, seq_len, self.n_local_heads, self.v_head_dim)
 
         x = self.wo(x.flatten(2))
         return x

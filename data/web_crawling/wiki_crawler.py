@@ -54,9 +54,7 @@ def save_to_file(text, url, output_dir="."):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Extract clean text from Wikipedia pages"
-    )
+    parser = argparse.ArgumentParser(description="Extract clean text from Wikipedia pages")
     parser.add_argument("url", help="Wikipedia URL to parse")
     parser.add_argument(
         "--output",

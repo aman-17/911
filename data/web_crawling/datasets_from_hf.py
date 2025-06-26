@@ -19,9 +19,7 @@ def get_dtype_for_vocab_size(vocab_size):
         return np.uint64
 
 
-def process_dataset(
-    dataset, tokenizer, local_dir="processed_data", shard_size=int(1e8)
-):
+def process_dataset(dataset, tokenizer, local_dir="processed_data", shard_size=int(1e8)):
     DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), local_dir)
     os.makedirs(DATA_CACHE_DIR, exist_ok=True)
     vocab_size = tokenizer.vocab_size
@@ -67,20 +65,14 @@ def process_dataset(
                 all_tokens_np[token_count : token_count + len(tokens)] = tokens
                 token_count += len(tokens)
                 if progress_bar is None:
-                    progress_bar = tqdm(
-                        total=shard_size, unit="tokens", desc=f"Shard {shard_index}"
-                    )
+                    progress_bar = tqdm(total=shard_size, unit="tokens", desc=f"Shard {shard_index}")
                 progress_bar.update(len(tokens))
             else:
                 split = "val" if shard_index == 0 else "train"
-                filename = os.path.join(
-                    DATA_CACHE_DIR, f"processed_{split}_{shard_index:06d}"
-                )
+                filename = os.path.join(DATA_CACHE_DIR, f"processed_{split}_{shard_index:06d}")
                 remainder = shard_size - token_count
                 progress_bar.update(remainder)
-                all_tokens_np[token_count : token_count + remainder] = tokens[
-                    :remainder
-                ]
+                all_tokens_np[token_count : token_count + remainder] = tokens[:remainder]
                 write_datafile(filename, all_tokens_np)
                 shard_index += 1
                 progress_bar = None
@@ -89,16 +81,12 @@ def process_dataset(
 
         if token_count != 0:
             split = "val" if shard_index == 0 else "train"
-            filename = os.path.join(
-                DATA_CACHE_DIR, f"processed_{split}_{shard_index:06d}"
-            )
+            filename = os.path.join(DATA_CACHE_DIR, f"processed_{split}_{shard_index:06d}")
             write_datafile(filename, all_tokens_np[:token_count])
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Process dataset with tokenizer and save as .npy files"
-    )
+    parser = argparse.ArgumentParser(description="Process dataset with tokenizer and save as .npy files")
     parser.add_argument(
         "--dataset",
         type=str,

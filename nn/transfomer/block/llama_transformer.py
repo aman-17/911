@@ -21,9 +21,7 @@ class LlamaTransformerBlock(nn.Module):
         self.block_idx = cfg["block_idx"]
         n_kv_heads = cfg.get("n_kv_heads", n_heads)
         if n_heads % n_kv_heads != 0:
-            raise ValueError(
-                f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})"
-            )
+            raise ValueError(f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})")
         if cfg.get("attention", "mha") == "nsa":
             self.att = NativeSparseAttention(
                 d_in=cfg["emb_dim"],
@@ -75,9 +73,7 @@ class LlamaTransformerBlock(nn.Module):
                 use_rope=cfg["rope"],
                 use_flash_attn=cfg.get("use_flash_attn", True),
             )
-        self.dropout = (
-            nn.Dropout(cfg["drop_rate"]) if cfg["drop_rate"] > 0.0 else nn.Identity()
-        )
+        self.dropout = nn.Dropout(cfg["drop_rate"]) if cfg["drop_rate"] > 0.0 else nn.Identity()
         self.ff = FeedForward(cfg)
         self.norm1 = RMSNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.norm2 = RMSNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))

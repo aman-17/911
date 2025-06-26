@@ -70,9 +70,7 @@ class WandBCallback(Protocol):
     The config to load to W&B.
     """
 
-    cancel_tags: Optional[List[str]] = field(
-        default_factory=lambda: ["cancel", "canceled", "cancelled"]
-    )
+    cancel_tags: Optional[List[str]] = field(default_factory=lambda: ["cancel", "canceled", "cancelled"])
     """
     If you add any of these tags to a run on W&B, the run will cancel itself.
     Defaults to ``["cancel", "canceled", "cancelled"]``.
@@ -128,9 +126,7 @@ class WandBCallback(Protocol):
             self.wandb.log(metrics, step=step)
 
     def post_step(self):
-        cancel_check_interval = (
-            self.cancel_check_interval or self.trainer.cancel_check_interval
-        )
+        cancel_check_interval = self.cancel_check_interval or self.trainer.cancel_check_interval
         if self.enabled and get_rank() == 0 and self.step % cancel_check_interval == 0:
             self.trainer.thread_pool.submit(self.check_if_canceled)
 

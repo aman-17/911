@@ -76,9 +76,7 @@ class NormalizedFeedForward(nn.Module):
 
     def forward(self, x):
         x = x.to(self.dtype)
-        sw1 = self.sw1 * (
-            (self.sw_init_value / self.sw_init_scaling) * self.sqrt_d_model
-        )
+        sw1 = self.sw1 * ((self.sw_init_value / self.sw_init_scaling) * self.sqrt_d_model)
         sw3 = self.sw3 * (self.sw_init_value / self.sw_init_scaling)
         return self.w2(F.silu(sw1 * self.w1(x)) * (sw3 * self.w3(x)))
 

@@ -9,9 +9,7 @@ class TokenizerV0:
     def encode(self, text):
         preprocessed = re.split(r'([,.?_!"()\']|--|\s)', text)
         preprocessed = [item for item in preprocessed if item.strip()]
-        preprocessed = [
-            item if item in self.str_to_int else "<|unk|>" for item in preprocessed
-        ]
+        preprocessed = [item if item in self.str_to_int else "<|unk|>" for item in preprocessed]
         ids = [self.str_to_int[s] for s in preprocessed]
         return ids
 

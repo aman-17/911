@@ -23,9 +23,7 @@ def tokenize(doc):
     tokens = [eot]
     tokens.extend(enc.encode_ordinary(doc["text"]))
     tokens_np = np.array(tokens)
-    assert (0 <= tokens_np).all() and (
-        tokens_np < 2**16
-    ).all(), "token dictionary too large for uint16"
+    assert (0 <= tokens_np).all() and (tokens_np < 2**16).all(), "token dictionary too large for uint16"
     tokens_np_uint16 = tokens_np.astype(np.uint16)
     return tokens_np_uint16
 
@@ -45,15 +43,11 @@ with mp.Pool(nprocs) as pool:
             all_tokens_np[token_count : token_count + len(tokens)] = tokens
             token_count += len(tokens)
             if progress_bar is None:
-                progress_bar = tqdm(
-                    total=shard_size, unit="tokens", desc=f"Shard {shard_index}"
-                )
+                progress_bar = tqdm(total=shard_size, unit="tokens", desc=f"Shard {shard_index}")
             progress_bar.update(len(tokens))
         else:
             split = "val" if shard_index == 0 else "train"
-            filename = os.path.join(
-                DATA_CACHE_DIR, f"fineweb_{split}_{shard_index:06d}"
-            )
+            filename = os.path.join(DATA_CACHE_DIR, f"fineweb_{split}_{shard_index:06d}")
             remainder = shard_size - token_count
             progress_bar.update(remainder)
             all_tokens_np[token_count : token_count + remainder] = tokens[:remainder]

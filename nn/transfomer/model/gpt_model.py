@@ -16,15 +16,9 @@ class GPTModel(nn.Module):
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
         self.pos_emb = nn.Embedding(cfg["max_seq_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
-        self.trf_blocks = nn.Sequential(
-            *[GPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])]
-        )
-        self.final_norm = LayerNorm(
-            cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"])
-        )
-        self.out_head = nn.Linear(
-            cfg["emb_dim"], cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"])
-        )
+        self.trf_blocks = nn.Sequential(*[GPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])])
+        self.final_norm = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
+        self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"]))
         self.apply(self._init_weights)
         self.use_cache = cfg.get("use_cache", True)
 
@@ -79,18 +73,12 @@ class nGPTModel(nn.Module):
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
         self.pos_emb = nn.Embedding(cfg["max_seq_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
-        self.trf_blocks = nn.Sequential(
-            *[GPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])]
-        )
-        self.final_norm = LayerNorm(
-            cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"])
-        )
+        self.trf_blocks = nn.Sequential(*[GPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])])
+        self.final_norm = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
         self.sz_init_value = 1.0
         self.sz_init_scaling = 1.0 / math.sqrt(cfg["emb_dim"])
-        self.sz = nn.Parameter(
-            torch.empty(cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"]))
-        )
+        self.sz = nn.Parameter(torch.empty(cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"])))
         self.apply(self._init_weights)
         self.reset_parameters()
 
@@ -145,12 +133,8 @@ class nanoGPTModel(nn.Module):
         self.tok_emb = nn.Embedding(cfg["vocab_size"], cfg["emb_dim"])
         self.pos_emb = nn.Embedding(cfg["max_seq_length"], cfg["emb_dim"])
         self.drop_emb = nn.Dropout(cfg["drop_rate"])
-        self.trf_blocks = nn.Sequential(
-            *[nanoGPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])]
-        )
-        self.final_norm = LayerNorm(
-            cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"])
-        )
+        self.trf_blocks = nn.Sequential(*[nanoGPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])])
+        self.final_norm = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
         self.apply(self._init_weights)
 
@@ -164,9 +148,7 @@ class nanoGPTModel(nn.Module):
 
     def forward(self, in_idx):
         batch_size, seq_len = in_idx.shape
-        assert (
-            seq_len <= self.cfg["emb_dim"]
-        ), f"Cannot forward sequence of length {seq_len}, block size is only {self.cfg['emb_dim']}"
+        assert seq_len <= self.cfg["emb_dim"], f"Cannot forward sequence of length {seq_len}, block size is only {self.cfg['emb_dim']}"
         tok_embeds = self.tok_emb(in_idx)
         pos_embeds = self.pos_emb(torch.arange(0, seq_len, device=in_idx.device))
         x = tok_embeds + pos_embeds

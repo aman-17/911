@@ -57,10 +57,7 @@ def create_train_loader(cfg, distributed=True):
                 file_paths = file_paths[start_idx:end_idx]
 
                 if rank == 0:
-                    print(
-                        f"Distributed mode: Total files: {len(file_paths) * world_size}, "
-                        f"Files per rank: {len(file_paths)}"
-                    )
+                    print(f"Distributed mode: Total files: {len(file_paths) * world_size}, " f"Files per rank: {len(file_paths)}")
 
             tokenized_data = list(load_npy_data_generator(file_paths))
 
@@ -119,10 +116,7 @@ def create_train_loader(cfg, distributed=True):
                 data = data[start_idx:end_idx]
 
                 if rank == 0:
-                    print(
-                        f"Distributed mode: Total tokens: {data_len}, "
-                        f"Tokens per rank: ~{chunk_size}"
-                    )
+                    print(f"Distributed mode: Total tokens: {data_len}, " f"Tokens per rank: ~{chunk_size}")
 
             tokenized_data = [data]
 

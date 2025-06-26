@@ -74,9 +74,7 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
         total_samples = 0
         for token_seq in self.tokenized_data:
             if len(token_seq) > self.context_length:
-                num_samples = (
-                    len(token_seq) - self.context_length + self.stride - 1
-                ) // self.stride
+                num_samples = (len(token_seq) - self.context_length + self.stride - 1) // self.stride
                 total_samples += num_samples
         self._length = total_samples
 
@@ -107,9 +105,7 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
             data_to_process = self.tokenized_data
 
         if worker_info is not None:
-            per_worker = int(
-                math.ceil(len(data_to_process) / float(worker_info.num_workers))
-            )
+            per_worker = int(math.ceil(len(data_to_process) / float(worker_info.num_workers)))
             worker_id = worker_info.id
             start_idx = worker_id * per_worker
             end_idx = min(start_idx + per_worker, len(data_to_process))

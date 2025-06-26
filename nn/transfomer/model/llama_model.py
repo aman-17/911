@@ -17,20 +17,9 @@ class LlamaModel(nn.Module):
         hidden_size = int(8 * cfg["emb_dim"] / 3)
         if cfg.get("hidden_size_multiplier") is not None:
             hidden_size = int(cfg["hidden_size_multiplier"] * hidden_size)
-        hidden_size = ensure_multiple_of(
-            hidden_size, cfg.get("hidden_size_multiple_of", 256)
-        )
-        self.trf_blocks = nn.Sequential(
-            *[
-                LlamaTransformerBlock(
-                    {**cfg, "block_idx": i, "hidden_size": hidden_size}
-                )
-                for i in range(cfg["n_layers"])
-            ]
-        )
-        self.final_norm = RMSNorm(
-            cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"])
-        )
+        hidden_size = ensure_multiple_of(hidden_size, cfg.get("hidden_size_multiple_of", 256))
+        self.trf_blocks = nn.Sequential(*[LlamaTransformerBlock({**cfg, "block_idx": i, "hidden_size": hidden_size}) for i in range(cfg["n_layers"])])
+        self.final_norm = RMSNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
 
         if cfg.get("attention", "mha") == "mla":
@@ -71,9 +60,7 @@ class LlamaModel(nn.Module):
             freqs_cis = self.freqs_cis[start_pos : start_pos + seq_len]
             mask = None
             if seq_len > 1:
-                mask = torch.full(
-                    (seq_len, seq_len), float("-inf"), device=in_idx.device
-                ).triu_(1)
+                mask = torch.full((seq_len, seq_len), float("-inf"), device=in_idx.device).triu_(1)
             for block in self.trf_blocks:
                 x = block(x, start_pos, freqs_cis, mask)
         else:
