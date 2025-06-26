@@ -2,8 +2,8 @@ vocab_size: 50297
 max_seq_length: 4096
 seq_length: 4096
 
-DEFAULT_EVAL_FREQ: 1000
-DEFAULT_SAVE_ITER: 1000
+DEFAULT_EVAL_FREQ: 10
+DEFAULT_EVAL_ITER: 100
 DEFAULT_START_CONTEXT: "The Bowmanstown Borough Authority was incorporated August 24, 1997 and"
 
 checkpoint:
@@ -15,7 +15,7 @@ checkpoint:
   save_training_state: true
 
 distributed:
-  strategy: "ddp" 
+  strategy: "fsdp" 
   fsdp:
     sharding_strategy: "FULL_SHARD"  # [FULL_SHARD, SHARD_GRAD_OP, NO_SHARD, HYBRID_SHARD]
     mixed_precision: false  # Disabled by default to avoid dtype issues
@@ -144,15 +144,15 @@ model:
       hidden_dim: 3072
       n_kv_heads: 8
       qk_norm: True
-      vocab_size: 151936
-      context_length: 4096
+      vocab_size: 50297
+      context_length: 1024
       window_size: 512
       rope_base: 1000000
 
-  active: "gpt2_small"
+  active: "qwen3_0_6B"
 
 
-print_config: True
+print_config: False
 
 train_data: edu_fineweb10B
 batch_size: 2

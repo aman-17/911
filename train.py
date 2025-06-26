@@ -20,7 +20,7 @@ from torch.distributed.fsdp import (
 from torch.distributed.fsdp.wrap import (
     size_based_auto_wrap_policy,
 )
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 import wandb
 from config_utils import load_config
 from data.dataset_utils import create_train_loader
@@ -29,16 +29,6 @@ from nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
 from nn.transfomer.model.llama_model import LlamaModel
 from nn.transfomer.model.qwen_model import Qwen3Model
 from nn.utils import generate_text_simple
-
-
-# def setup(rank, world_size):
-#     os.environ["MASTER_ADDR"] = "localhost"
-#     os.environ["MASTER_PORT"] = "29500"
-#     if torch.cuda.is_available():
-#         dist.init_process_group("nccl", rank=rank, world_size=world_size)
-#         torch.cuda.set_device(rank)
-#     elif torch.backends.mps.is_available():
-#         dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
 def setup(rank: Optional[int] = None, world_size: Optional[int] = None) -> Tuple[int, int, int]:
     if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
@@ -56,8 +46,8 @@ def setup(rank: Optional[int] = None, world_size: Optional[int] = None) -> Tuple
         print(f"Running with mp.spawn: rank={rank}, world_size={world_size}")
     
     if torch.cuda.is_available():
-        dist.init_process_group("nccl", rank=rank, world_size=world_size)
         torch.cuda.set_device(local_rank)
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)
     elif torch.backends.mps.is_available():
         dist.init_process_group("gloo", rank=rank, world_size=world_size)
     
@@ -213,6 +203,12 @@ def train_911(
     last_eval_time = start_time
     last_eval_tokens = 0
 
+    if rank == 0:
+        print(f"Starting training with {len(train_loader)} batches per epoch")
+        print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
+        print(f"Evaluation frequency: {eval_freq} steps")
+        print(f"Batch size: {train_config['batch_size']}")
+
     for epoch in range(num_epochs):
         model.train()
         ce_epoch_loss = 0.0
@@ -235,9 +231,14 @@ def train_911(
             tokens_seen += input_batch.numel()
             ce_epoch_loss += ce_loss.item()
             z_epoch_loss += z_loss.item()
+            if rank == 0 and global_step % 10 == 0:
+                print(f"Step {global_step}: CE Loss = {ce_loss.item():.4f}, Z Loss = {z_loss.item():.4f}, LR = {learning_rate_scheduler.get_last_lr()[0]:.6f}")
 
             if global_step % eval_freq == 0:
-                dist.barrier()
+                if torch.cuda.is_available():
+                    dist.barrier(device_ids=[local_rank])
+                else:
+                    dist.barrier()
                 total_ce_loss, total_z_loss = calc_total_loss(
                     train_loader, model, device, eval_iter
                 )
@@ -300,7 +301,6 @@ def train_911(
 
     return train_ce_losses, train_z_losses, track_tokens_seen
 
-
 def run_training(rank, world_size, train_config):
     train_ce_losses, train_z_losses, tokens_seen = train_911(
         rank=rank,
@@ -311,8 +311,6 @@ def run_training(rank, world_size, train_config):
         eval_iter=train_config["DEFAULT_EVAL_ITER"],
         start_context=train_config["DEFAULT_START_CONTEXT"],
     )
-
-
 
 def main_torchrun():
     train_config = load_config()
