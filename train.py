@@ -20,7 +20,7 @@ from torch.distributed.fsdp import (
 from torch.distributed.fsdp.wrap import (
     size_based_auto_wrap_policy,
 )
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import wandb
 from config_utils import load_config
 from data.dataset_utils import create_train_loader
