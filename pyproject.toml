@@ -24,7 +24,8 @@ dependencies = [
     "tiktoken",
     "black",
     "isort",
-    "ruff"
+    "ruff",
+    "omegaconf"
 ]
 
 [project.urls]

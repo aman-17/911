@@ -1,9 +1,15 @@
 from typing import Optional
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributed import DeviceMesh
+from torch.distributed.tensor import Placement, Replicate, Shard
+from torch.distributed.tensor.parallel import parallelize_module
 
+from nn.attention.utils import get_tp_wrappers
+from nn.distributed.parallel.tensor_parallel import SequenceParallel
 from nn.norms import Qwen3RMSNorm
 from nn.rope import RotaryPositionalEmbeddings
 
@@ -49,6 +55,12 @@ class GroupedQueryAttention(nn.Module):
         self.register_buffer("cache_v", None, persistent=False)
         self.cache_initialized = False
         self.ptr = 0
+        self._cp_pg: Optional[dist.ProcessGroup] = None
+        self._cp_enabled = False
+
+    @property
+    def cp_enabled(self) -> bool:
+        return self._cp_enabled
 
     def forward(self, x, cos, sin, use_cache=False):
         b, num_tokens, _ = x.shape
@@ -128,6 +140,61 @@ class GroupedQueryAttention(nn.Module):
             attn_weights = torch.softmax(attn_scores / self.head_dim**0.5, dim=-1)
             context_vec = (attn_weights @ values).transpose(1, 2).reshape(b, num_tokens, self.d_out)
         return self.out_proj(context_vec)
+
+    def apply_tp(
+        self,
+        tp_mesh: DeviceMesh,
+        input_layout: Optional[Placement] = None,
+        output_layout: Optional[Placement] = None,
+        use_local_output: bool = True,
+        float8_enabled: bool = False,
+    ):
+        rowwise_parallel, colwise_parallel, prepare_module_input = get_tp_wrappers(float8_enabled=float8_enabled)
+
+        parallelize_module(
+            self,
+            device_mesh=tp_mesh,
+            parallelize_plan=prepare_module_input(
+                input_layouts=None if input_layout is None else (input_layout,),
+                desired_input_layouts=(Replicate(),),
+            ),
+        )
+
+        plan = {
+            "w_q": colwise_parallel(
+                output_layouts=None if self.q_norm is None else Shard(1),
+                use_local_output=self.q_norm is None,
+            ),
+            "w_k": colwise_parallel(
+                output_layouts=None if self.k_norm is None else Shard(1),
+                use_local_output=self.k_norm is None,
+            ),
+            "w_v": colwise_parallel(),
+            "w_out": rowwise_parallel(output_layouts=output_layout, use_local_output=use_local_output),
+        }
+        if self.q_norm is not None:
+            plan["q_norm"] = SequenceParallel(use_local_output=True, output_layouts=Shard(-1))
+        if self.k_norm is not None:
+            plan["k_norm"] = SequenceParallel(use_local_output=True, output_layouts=Shard(-1))
+
+        parallelize_module(
+            module=self,
+            device_mesh=tp_mesh,
+            parallelize_plan=plan,
+        )
+
+    def apply_cp(self, cp_mesh: DeviceMesh):
+        """
+        Prepare the module for context-parallelism (ring attention).
+
+        .. important::
+            This requires flash-attn and ring-flash-attn (``use_flash=True``).
+
+        :param cp_mesh: The context parallel device sub-mesh.
+        :param load_balancer: The load balancer type.
+        """
+        self._cp_pg = cp_mesh.get_group()
+        self._cp_enabled = True
 
     def reset_cache(self):
         if self.cache_k is not None:

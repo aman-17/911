@@ -7,16 +7,13 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-    CheckpointImpl,
     apply_activation_checkpointing,
     checkpoint_wrapper,
 )
 from torch.distributed.fsdp import BackwardPrefetch, CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
-from torch.distributed.fsdp.wrap import (
-    size_based_auto_wrap_policy,
-)
+from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
 import wandb
 from config_utils import load_config

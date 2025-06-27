@@ -15,7 +15,8 @@ class Qwen3Model(nn.Module):
         self.final_norm = Qwen3RMSNorm(cfg["emb_dim"])
         self.max_seq_len = cfg["max_seq_length"]
         self.head_dim = cfg["emb_dim"] // cfg["n_heads"]
-        self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
+        self.out_head = nn.
+        (cfg["emb_dim"], cfg["vocab_size"], bias=False)
         self.dtype = autocast_precision(cfg["dtype"])
         self.rope = RotaryPositionalEmbeddings(dim=self.head_dim, max_seq_len=self.max_seq_len)
         cos, sin = self.rope.compute_rope_params(
