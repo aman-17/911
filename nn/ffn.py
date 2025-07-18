@@ -1,20 +1,19 @@
 import math
-
 from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from nn.activations import GELU
-from nn.utils import autocast_precision
-
 from torch.distributed import DeviceMesh
-from torch.distributed.tensor import Placement, Replicate, Shard
+from torch.distributed.tensor import Placement, Replicate  # , Shard
 from torch.distributed.tensor.parallel import parallelize_module
 
+from nn.activations import GELU
+
+# from nn.distributed.parallel.tensor_parallel import SequenceParallel
 from nn.distributed.utils import get_tp_wrappers
-from nn.distributed.parallel.tensor_parallel import SequenceParallel
+from nn.utils import autocast_precision
+
 
 class FeedForward(nn.Module):
     def __init__(self, cfg):
@@ -34,7 +33,7 @@ class FeedForward(nn.Module):
     def forward(self, x):
         x = x.to(self.dtype)
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
-    
+
     def apply_tp(
         self,
         tp_mesh: DeviceMesh,
@@ -43,9 +42,7 @@ class FeedForward(nn.Module):
         use_local_output: bool = True,
         float8_enabled: bool = False,
     ):
-        rowwise_parallel, colwise_parallel, prepare_module_input = get_tp_wrappers(
-            float8_enabled=float8_enabled
-        )
+        rowwise_parallel, colwise_parallel, prepare_module_input = get_tp_wrappers(float8_enabled=float8_enabled)
 
         parallelize_module(
             module=self,
@@ -61,9 +58,7 @@ class FeedForward(nn.Module):
             device_mesh=tp_mesh,
             parallelize_plan={
                 "w1": colwise_parallel(),
-                "w2": rowwise_parallel(
-                    output_layouts=output_layout, use_local_output=use_local_output
-                ),
+                "w2": rowwise_parallel(output_layouts=output_layout, use_local_output=use_local_output),
                 "w3": colwise_parallel(),
             },
         )
@@ -85,7 +80,7 @@ class Qwen3FeedForward(nn.Module):
         x_fc3 = self.w3(x)
         x = F.silu(x_fc1) * x_fc3
         return self.w2(x)
-    
+
     def apply_tp(
         self,
         tp_mesh: DeviceMesh,
@@ -94,9 +89,7 @@ class Qwen3FeedForward(nn.Module):
         use_local_output: bool = True,
         float8_enabled: bool = False,
     ):
-        rowwise_parallel, colwise_parallel, prepare_module_input = get_tp_wrappers(
-            float8_enabled=float8_enabled
-        )
+        rowwise_parallel, colwise_parallel, prepare_module_input = get_tp_wrappers(float8_enabled=float8_enabled)
 
         parallelize_module(
             module=self,
@@ -112,9 +105,7 @@ class Qwen3FeedForward(nn.Module):
             device_mesh=tp_mesh,
             parallelize_plan={
                 "w1": colwise_parallel(),
-                "w2": rowwise_parallel(
-                    output_layouts=output_layout, use_local_output=use_local_output
-                ),
+                "w2": rowwise_parallel(output_layouts=output_layout, use_local_output=use_local_output),
                 "w3": colwise_parallel(),
             },
         )
@@ -164,9 +155,7 @@ class NormalizedFeedForward(nn.Module):
     ):
         del tp_mesh, input_layout, output_layout, use_local_output, float8_enabled
 
-        raise NotImplementedError(
-            "TP is not implemented yet for the normalized FFN"
-        )
+        raise NotImplementedError("TP is not implemented yet for the normalized FFN")
 
     @torch.no_grad()
     def normalize_matrices(self):
@@ -208,6 +197,4 @@ class nanoGPTFeedForward(nn.Module):
     ):
         del tp_mesh, input_layout, output_layout, use_local_output, float8_enabled
 
-        raise NotImplementedError(
-            "TP is not implemented yet for the nanoGPT FFN"
-        )
+        raise NotImplementedError("TP is not implemented yet for the nanoGPT FFN")

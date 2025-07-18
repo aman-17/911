@@ -2,6 +2,22 @@ import torch
 import torch.nn as nn
 
 
+class SiLU(nn.Module):
+    __constants__ = ["inplace"]
+    inplace: bool
+
+    def __init__(self, inplace: bool = False):
+        super().__init__()
+        self.inplace = inplace
+
+    def forward(self, x):
+        return x * torch.sigmoid(x)
+
+    def extra_repr(self) -> str:
+        inplace_str = "inplace=True" if self.inplace else ""
+        return inplace_str
+
+
 class GELU(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

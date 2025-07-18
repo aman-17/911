@@ -1,4 +1,3 @@
-import math
 from collections import defaultdict
 from typing import Dict, Tuple, Type
 
@@ -23,6 +22,7 @@ def get_local_tensor(x: torch.Tensor) -> torch.Tensor:
             return x
     else:
         return x
+
 
 def _get_custom_checkpoint_policy(meta: Dict[str, int]):
     # Adapted from

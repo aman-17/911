@@ -6,6 +6,7 @@ import torch.nn as nn
 from nn.attention.multihead_attention import MultiHeadAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.attention.native_sparse_attention import NativeSparseAttention
+from nn.attention.minmax_attention import MinMaxAttention
 from nn.ffn import FeedForward
 from nn.norms import RMSNorm
 from nn.utils import autocast_precision
@@ -22,7 +23,19 @@ class LlamaTransformerBlock(nn.Module):
         n_kv_heads = cfg.get("n_kv_heads", n_heads)
         if n_heads % n_kv_heads != 0:
             raise ValueError(f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})")
-        if cfg.get("attention", "mha") == "nsa":
+        if cfg.get("attention", "mha") == "minmax":
+            self.att = MinMaxAttention(
+                d_in=cfg["emb_dim"],
+                d_out=cfg["emb_dim"],
+                num_heads=cfg["n_heads"],
+                max_seq_len=cfg["max_seq_length"],
+                dropout=cfg["drop_rate"],
+                dtype=autocast_precision(cfg["dtype"]),
+                qkv_bias=cfg["qkv_bias"],
+                activation=cfg.get("minmax_activation", "silu"),
+                block_size=cfg.get("minmax_block_size", 256),
+            )
+        elif cfg.get("attention", "mha") == "nsa":
             self.att = NativeSparseAttention(
                 d_in=cfg["emb_dim"],
                 d_out=cfg["emb_dim"],
@@ -90,6 +103,8 @@ class LlamaTransformerBlock(nn.Module):
     ) -> torch.Tensor:
         if isinstance(self.att, MultiHeadLatentAttention):
             h = x + self.dropout(self.att(self.norm1(x), start_pos, freqs_cis, mask))
+        elif isinstance(self.att, MinMaxAttention):
+            h = x + self.dropout(self.att(self.norm1(x), attn_mask=mask))
         else:
             h = x + self.dropout(self.att(self.norm1(x)))
         return h + self.dropout(self.ff(self.norm2(h)))

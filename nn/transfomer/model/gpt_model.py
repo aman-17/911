@@ -62,7 +62,8 @@ class GPTModel(nn.Module):
 
     def reset_kv_cache(self):
         for blk in self.trf_blocks:
-            blk.att.reset_cache()
+            if hasattr(blk.att, "reset_cache"):
+                blk.att.reset_cache()
         self.ptr_current_pos = 0
 
 

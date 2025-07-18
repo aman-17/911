@@ -1,18 +1,18 @@
 import torch.nn as nn
+from torch.distributed import DeviceMesh
+from torch.distributed.tensor import Placement, Shard
+from torch.distributed.tensor.parallel import PrepareModuleInput, parallelize_module
 
 from nn.attention.groupquery_attention import GroupedQueryAttention
+from nn.attention.minmax_attention import MinMaxAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.attention.native_sparse_attention import NativeSparseAttention
 from nn.ffn import Qwen3FeedForward
 from nn.norms import Qwen3RMSNorm
 from nn.utils import autocast_precision
 
-from torch.distributed import DeviceMesh
-from torch.distributed.tensor import Placement, Shard
-from torch.distributed.tensor.parallel import PrepareModuleInput, parallelize_module
-
-from nn.distributed.utils import get_tp_wrappers
-from nn.distributed.parallel.tensor_parallel import SequenceParallel
+# from nn.distributed.utils import get_tp_wrappers
+# from nn.distributed.parallel.tensor_parallel import SequenceParallel
 
 
 class Qwen3TransformerBlock(nn.Module):
@@ -22,7 +22,19 @@ class Qwen3TransformerBlock(nn.Module):
         n_kv_heads = cfg.get("n_kv_heads", n_heads)
         if n_heads % n_kv_heads != 0:
             raise ValueError(f"n_heads ({n_heads}) must be divisible by n_kv_heads ({n_kv_heads})")
-        if cfg.get("attention", "mha") == "nsa":
+        if cfg.get("attention", "mha") == "minmax":
+            self.att = MinMaxAttention(
+                d_in=cfg["emb_dim"],
+                d_out=cfg["emb_dim"],
+                num_heads=cfg["n_heads"],
+                max_seq_len=cfg["max_seq_length"],
+                dropout=cfg["drop_rate"],
+                dtype=autocast_precision(cfg["dtype"]),
+                qkv_bias=cfg["qkv_bias"],
+                activation=cfg.get("minmax_activation", "silu"),
+                block_size=cfg.get("minmax_block_size", 256),
+            )
+        elif cfg.get("attention", "mha") == "nsa":
             self.att = NativeSparseAttention(
                 d_in=cfg["emb_dim"],
                 d_out=cfg["emb_dim"],
@@ -81,7 +93,10 @@ class Qwen3TransformerBlock(nn.Module):
     def forward(self, x, cos, sin, use_cache=False):
         shortcut = x
         x = self.norm1(x)
-        x = self.att(x, cos, sin, use_cache)  # Shape [batch_size, num_tokens, emb_size]
+        if isinstance(self.att, MinMaxAttention):
+            x = self.att(x, use_cache=use_cache)  # MinMax attention doesn't use cos/sin
+        else:
+            x = self.att(x, cos, sin, use_cache)  # Shape [batch_size, num_tokens, emb_size]
         x = x + shortcut
         shortcut = x
         x = self.norm2(x)

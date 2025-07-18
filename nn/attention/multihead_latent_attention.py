@@ -4,43 +4,9 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
+from nn.attention.utils import apply_rotary_emb
 from nn.norms import RMSNorm
 from nn.rope import RotaryPositionalEmbeddings
-
-
-def rotate_half(x: torch.Tensor) -> torch.Tensor:
-    x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2 :]
-    return torch.cat((-x2, x1), dim=-1)
-
-
-def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
-    dtype = x.dtype
-    if x.size(-1) % 2 != 0:
-        raise ValueError(f"Last dimension must be even, got {x.size(-1)}")
-
-    x = torch.view_as_complex(x.float().view(*x.shape[:-1], -1, 2))
-
-    if len(freqs_cis.shape) == 2:  # [seq_len, dim//2]
-        freqs_cis = freqs_cis.view(1, freqs_cis.size(0), 1, freqs_cis.size(1))
-    elif len(freqs_cis.shape) == 4:
-        pass
-    else:
-        raise ValueError(f"Unexpected freqs_cis shape: {freqs_cis.shape}")
-
-    if freqs_cis.size(-1) != x.size(-1):
-        freqs_cis = freqs_cis[..., : x.size(-1)]
-
-    y = torch.view_as_real(x * freqs_cis).flatten(3)
-    return y.to(dtype)
-
-
-def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-    if n_rep == 1:
-        return hidden_states
-    batch, seq_len, n_kv_heads, head_dim = hidden_states.shape
-    hidden_states = hidden_states[:, :, :, None, :].expand(batch, seq_len, n_kv_heads, n_rep, head_dim)
-    return hidden_states.reshape(batch, seq_len, n_kv_heads * n_rep, head_dim)
 
 
 class MultiHeadLatentAttention(nn.Module):
