@@ -13,7 +13,7 @@ from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Replicate, Shard
 from torch.distributed.tensor.parallel import parallelize_module
 
-from nn.attention.utils import get_tp_wrappers
+from nn.distributed.utils import get_tp_wrappers
 from nn.distributed.parallel.tensor_parallel import SequenceParallel
 
 class FeedForward(nn.Module):
