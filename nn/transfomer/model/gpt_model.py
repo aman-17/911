@@ -19,8 +19,19 @@ class GPTModel(nn.Module):
         self.trf_blocks = nn.Sequential(*[GPTTransformerBlock(cfg) for _ in range(cfg["n_layers"])])
         self.final_norm = LayerNorm(cfg["emb_dim"], dtype=autocast_precision(cfg["dtype"]))
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"]))
-        self.apply(self._init_weights)
         self.use_cache = cfg.get("use_cache", True)
+        self.mup = cfg.get("mup", False)
+        self.apply(self._init_weights)
+        
+        for pn, p in self.named_parameters():
+            if self.mup:
+                if pn.endswith('c_attn.weight') or pn.endswith('c_fc.weight'):
+                    torch.nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(self.cfg.mup_width_multiplier))
+                elif pn.endswith('c_proj.weight'):
+                    torch.nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * self.cfg.n_layer * self.cfg.mup_width_multiplier))
+
+            elif pn.endswith('c_proj.weight'):
+                torch.nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * self.cfg.n_layer))
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -51,11 +62,14 @@ class GPTModel(nn.Module):
 
         x = tok_embeds + pos_embeds
         x = self.drop_emb(x)
+        if self.mup:
+            x *= self.cfg.get("mup_input_alpha", 1.0)
         # x = self.trf_blocks(x)
 
         for blk in self.trf_blocks:
             x = blk(x, use_cache=use_cache)
-
+        if self.mup:
+            x *= self.cfg.get("mup_output_alpha", 1.0) / self.cfg.get("mup_width_multiplier", 1.0)
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits

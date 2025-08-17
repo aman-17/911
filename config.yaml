@@ -168,6 +168,10 @@ dtype: fp32
 tie_embeddings: False
 attention: "gqa"
 use_flash_attn: True
+mup: True
+mup_width_multiplier: 1.0
+mup_input_alpha: 1.0
+mup_output_alpha: 1.0
 
 compression_block_size: 16
 compression_stride: 16

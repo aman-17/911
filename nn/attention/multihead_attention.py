@@ -29,6 +29,7 @@ class MultiHeadAttention(nn.Module):
         use_rope: bool = True,
         use_flash_attn: bool = True,
         use_cache: bool = False,
+        mup: Optional[bool] = False
     ):
         super().__init__()
         assert d_out % num_heads == 0, "d_out must be divisible by num_heads"
@@ -45,6 +46,7 @@ class MultiHeadAttention(nn.Module):
         self.use_rope = use_rope
         self.max_seq_len = max_seq_len
         self.use_flash_attn = use_flash_attn
+        self.mup = mup
         if use_rope:
             self.rope = RotaryPositionalEmbeddings(dim=self.head_dim, max_seq_len=self.max_seq_len)
         self.register_buffer("mask", torch.triu(torch.ones(max_seq_len, max_seq_len), diagonal=1))
@@ -61,7 +63,7 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, x, use_cache: bool = False):
         x = x.to(self.dtype)
-        batch_size, num_tokens, d_in = x.shape
+        batch_size, num_tokens, _ = x.shape
         keys = self.w_key(x)  # shape (2, 6, 4)
         queries = self.w_query(x)  # shape (2, 6, 4)
         values = self.w_value(x)  # shape (2, 6, 4)
@@ -70,6 +72,11 @@ class MultiHeadAttention(nn.Module):
         queries = queries.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
         keys = keys.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
         values = values.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
+
+        if self.mup:
+            attention_scale = 1.0 / keys.size(-1)
+        else:
+            attention_scale = 1.0 / math.sqrt(keys.size(-1))
 
         # This transposes the tensors to bring the num_heads dimension before num_tokens: `SDPA expects this.`
         keys, queries, values = (
@@ -120,10 +127,11 @@ class MultiHeadAttention(nn.Module):
                 attn_mask=None,
                 dropout_p=self.dropout.p if self.training else 0.0,
                 is_causal=True,
+                scale=attention_scale,
             )
         else:
             # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
-            attn_scores = queries @ keys.transpose(2, 3)  # attn_scores shape: (2, 2, 6, 6).
+            attn_scores = (queries @ keys.transpose(2, 3)) * attention_scale  # attn_scores shape: (2, 2, 6, 6).
             K = attn_scores.size(-1)
             if num_tokens == K:
                 causal_mask = torch.triu(

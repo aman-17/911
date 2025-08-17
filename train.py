@@ -23,7 +23,7 @@ from nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
 from nn.transfomer.model.llama_model import LlamaModel
 from nn.transfomer.model.qwen_model import Qwen3Model
 from nn.utils import generate_text_simple
-
+from nn.optimizer import Optimizer911
 
 def setup(rank: Optional[int] = None, world_size: Optional[int] = None) -> Tuple[int, int, int]:
     if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
@@ -137,7 +137,37 @@ def generate_and_print_sample(model, tokenizer, start_context, device, rank):
 
 def create_model(train_config: Dict, device: torch.device) -> torch.nn.Module:
     if train_config["model_arch"] == "gpt":
+        from transformers import GPT2LMHeadModel
         model = GPTModel(train_config)
+        sd = model.state_dict()
+        sd_keys = sd.keys()
+        sd_keys = [k for k in sd_keys if not k.endswith('.attn.bias')] # discard this mask / buffer, not a param
+
+        # init a huggingface/transformers model
+        model_hf = GPT2LMHeadModel.from_pretrained(train_config["model_arch"])
+        sd_hf = model_hf.state_dict()
+
+        # copy while ensuring all of the parameters are aligned and match in names and shapes
+        sd_keys_hf = sd_hf.keys()
+        sd_keys_hf = [k for k in sd_keys_hf if not k.endswith('.attn.masked_bias')] # ignore these, just a buffer
+        sd_keys_hf = [k for k in sd_keys_hf if not k.endswith('.attn.bias')] # same, just the mask (buffer)
+        transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
+        # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla Linear
+        # this means that we have to transpose these weights when we import them
+        assert len(sd_keys_hf) == len(sd_keys), f"mismatched keys: {len(sd_keys_hf)} != {len(sd_keys)}"
+        for k in sd_keys_hf:
+            if any(k.endswith(w) for w in transposed):
+                # special treatment for the Conv1D weights we need to transpose
+                assert sd_hf[k].shape[::-1] == sd[k].shape
+                with torch.no_grad():
+                    sd[k].copy_(sd_hf[k].t())
+            else:
+                # vanilla copy over the other parameters
+                assert sd_hf[k].shape == sd[k].shape
+                with torch.no_grad():
+                    sd[k].copy_(sd_hf[k])
+
+        return model
     elif train_config["model_arch"] == "nanogpt":
         model = nanoGPTModel(train_config)
     elif train_config["model_arch"] == "ngpt":
@@ -172,10 +202,15 @@ def train_911(
         wandb.init(project="911-training", config=train_config)
 
     train_loader, tokenizer = create_train_loader(train_config)
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train_config["initial_lr"],
+    
+    optimizer_helper = Optimizer911(train_config)
+    device_type = "cuda" if torch.cuda.is_available() else "cpu"
+    optimizer = optimizer_helper.configure_optimizers(
+        model=model,
         weight_decay=train_config["weight_decay"],
+        learning_rate=train_config["initial_lr"],
+        betas=(0.9, 0.95),
+        device_type=device_type
     )
 
     learning_rate_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs * len(train_loader), eta_min=0.0, last_epoch=-1)
@@ -192,7 +227,7 @@ def train_911(
         ce_epoch_loss = 0.0
         z_epoch_loss = 0.0
 
-        for batch_idx, (input_batch, target_batch) in enumerate(train_loader):
+        for _, (input_batch, target_batch) in enumerate(train_loader):
             input_batch = input_batch.to(device)
             target_batch = target_batch.to(device)
 
