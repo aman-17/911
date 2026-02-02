@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from olmo_core.distributed.utils import get_rank
+from nn.distributed.utils import get_rank
 from typing_extensions import Protocol
 
 from callbacks.exceptions import EnvironmentError
