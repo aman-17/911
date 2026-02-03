@@ -1,5 +1,6 @@
+import gc
 from collections import defaultdict
-from typing import Dict, Tuple, Type
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type, TypeVar
 
 import torch
 import torch.distributed as dist
@@ -9,10 +10,6 @@ from torch.distributed.tensor.parallel import (
     PrepareModuleInput,
     RowwiseParallel,
 )
-
-import gc
-from typing import TYPE_CHECKING, List, Optional, TypeVar
-
 
 if TYPE_CHECKING:
     from torch.distributed.device_mesh import DeviceMesh
@@ -111,6 +108,7 @@ def get_mesh_coordinates(mesh: "DeviceMesh", rank: Optional[int] = None) -> Opti
     rank_coords = (mesh.mesh == rank).nonzero()
     assert rank_coords.size(0) in (0, 1)
     return rank_coords[0].tolist() if rank_coords.size(0) > 0 else None
+
 
 def get_local_tensor(x: torch.Tensor) -> torch.Tensor:
     if isinstance(x, DTensor):

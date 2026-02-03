@@ -10,7 +10,6 @@ from nn.norms import T5LayerNorm
 
 
 class MinMaxAttention(nn.Module):
-
     def __init__(
         self,
         d_in: int,

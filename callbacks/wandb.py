@@ -3,10 +3,10 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from nn.distributed.utils import get_rank
 from typing_extensions import Protocol
 
 from callbacks.exceptions import EnvironmentError
+from nn.distributed.utils import get_rank
 
 if TYPE_CHECKING:
     from wandb.sdk.wandb_run import Run

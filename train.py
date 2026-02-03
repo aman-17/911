@@ -6,6 +6,7 @@ from typing import Dict, Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
+import wandb
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
     checkpoint_wrapper,
@@ -15,7 +16,6 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 
-import wandb
 from config_utils import load_config
 from data.dataset_utils import create_train_loader
 from nn.loss_function import calc_loss_batch, calc_total_loss

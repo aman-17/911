@@ -3,10 +3,10 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
+from nn.attention.minmax_attention import MinMaxAttention
 from nn.attention.multihead_attention import MultiHeadAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.attention.native_sparse_attention import NativeSparseAttention
-from nn.attention.minmax_attention import MinMaxAttention
 from nn.ffn import FeedForward
 from nn.norms import RMSNorm
 from nn.utils import autocast_precision

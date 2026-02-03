@@ -19,7 +19,6 @@ class Colors:
 
 
 def print_config_value(key: str, value: Any, indent: int = 4) -> None:
-
     spaces = " " * indent
     colored_key = f"{Colors.CYAN}{key}{Colors.RESET}"
     if isinstance(value, str):
@@ -37,7 +36,6 @@ def print_config_value(key: str, value: Any, indent: int = 4) -> None:
 
 
 def print_configuration(config: Dict[str, Any], variant_name: str) -> None:
-
     print(f"\n{Colors.BOLD}{Colors.BG_BLUE} MODEL CONFIGURATION {Colors.RESET}")
     print(f"{Colors.BOLD}TrainingConfig{Colors.RESET}(")
 
