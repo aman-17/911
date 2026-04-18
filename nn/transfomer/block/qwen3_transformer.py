@@ -11,9 +11,6 @@ from nn.ffn import Qwen3FeedForward
 from nn.norms import Qwen3RMSNorm
 from nn.utils import autocast_precision
 
-# from nn.distributed.utils import get_tp_wrappers
-# from nn.distributed.parallel.tensor_parallel import SequenceParallel
-
 
 class Qwen3TransformerBlock(nn.Module):
     def __init__(self, cfg):
@@ -127,18 +124,12 @@ class Qwen3TransformerBlock(nn.Module):
             float8_enabled=False,
         )
 
-        # parallelize_module(
-        #     self.feed_forward_norm, device_mesh=tp_mesh, parallelize_plan=SequenceParallel()
-        # )
-
         self.ff.apply_tp(
             tp_mesh,
             output_layout=Shard(1),
             use_local_output=False,
             float8_enabled=False,
         )
-
-        # parallelize_module(self.dropout, device_mesh=tp_mesh, parallelize_plan=SequenceParallel())
 
     def apply_cp(self, cp_mesh: DeviceMesh):
         self.att.apply_cp(cp_mesh)

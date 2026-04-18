@@ -71,13 +71,11 @@ class NativeSparseAttention(nn.Module):
         return self._cached_window_mask[:seq_len, :seq_len]
 
     def _create_compressed_causal_mask(self, q_len: int, kv_len: int) -> torch.Tensor:
-        mask = torch.ones(q_len, kv_len, device=self.causal_mask.device)
-        for i in range(q_len):
-            for j in range(kv_len):
-                block_end = (j + 1) * self.compression_stride
-                if block_end > i:
-                    mask[i, j] = 0
-        return mask
+        device = self.causal_mask.device
+        i = torch.arange(q_len, device=device).unsqueeze(1)
+        j = torch.arange(kv_len, device=device).unsqueeze(0)
+        block_end = (j + 1) * self.compression_stride
+        return (block_end <= i).float()
 
     def _compress_tokens(self, keys: torch.Tensor, values: torch.Tensor, batch_size: int, seq_len: int) -> Tuple[torch.Tensor, torch.Tensor]:
         if seq_len <= self.compression_block_size:

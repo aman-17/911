@@ -101,9 +101,7 @@ class RotaryPositionalEmbeddings(nn.Module):
             -1,
         )
 
-        # tensor has shape [b, s, n_h, h_d]
         x_out = x_out.flatten(3)
-        # print(x_out)
         return x_out.type_as(x)
 
     def compute_rope_params(self, dim: int, base: int, max_seq_len: int, dtype=torch.float32):
@@ -117,8 +115,7 @@ class RotaryPositionalEmbeddings(nn.Module):
         return cos, sin
 
     def qwen3_rope(self, x, cos, sin):
-        # x: (batch_size, num_heads, seq_len, head_dim)
-        batch_size, num_heads, seq_len, head_dim = x.shape
+        seq_len, head_dim = x.shape[2], x.shape[3]
         assert head_dim % 2 == 0, "Head dimension must be even"
 
         x1 = x[..., : head_dim // 2]  # First half

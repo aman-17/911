@@ -9,7 +9,6 @@ from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Replicate  # , Shard
 from torch.distributed.tensor.parallel import parallelize_module
 
-# from nn.distributed.parallel.tensor_parallel import SequenceParallel
 from nn.distributed.utils import get_tp_wrappers
 from nn.rope import RotaryPositionalEmbeddings
 
@@ -62,21 +61,19 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x, use_cache: bool = False):
         x = x.to(self.dtype)
         batch_size, num_tokens, d_in = x.shape
-        keys = self.w_key(x)  # shape (2, 6, 4)
-        queries = self.w_query(x)  # shape (2, 6, 4)
-        values = self.w_value(x)  # shape (2, 6, 4)
+        keys = self.w_key(x)
+        queries = self.w_query(x)
+        values = self.w_value(x)
 
-        # shape: (batch_size, seq_len, n_heads, head_dim)
-        queries = queries.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
-        keys = keys.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
-        values = values.view(batch_size, num_tokens, self.num_heads, self.head_dim)  # New shape: (2, 6, 2, 2)
+        queries = queries.view(batch_size, num_tokens, self.num_heads, self.head_dim)
+        keys = keys.view(batch_size, num_tokens, self.num_heads, self.head_dim)
+        values = values.view(batch_size, num_tokens, self.num_heads, self.head_dim)
 
-        # This transposes the tensors to bring the num_heads dimension before num_tokens: `SDPA expects this.`
         keys, queries, values = (
             keys.transpose(1, 2),
             queries.transpose(1, 2),
             values.transpose(1, 2),
-        )  # New shape: (2, 2, 6, 2)
+        )
 
         if use_cache:
             if self.cache_k is None or self.cache_k.size(0) != batch_size:
@@ -105,8 +102,7 @@ class MultiHeadAttention(nn.Module):
             keys = self.cache_k[:, :, : self.ptr_cur, :]
             values = self.cache_v[:, :, : self.ptr_cur, :]
         else:
-            keys, values = keys, values
-            self.ptr_cur = 0  # keep pointer sane if you interleave modes
+            self.ptr_cur = 0
 
         if self.use_rope:
             queries = self.rope(queries)
@@ -122,8 +118,7 @@ class MultiHeadAttention(nn.Module):
                 is_causal=True,
             )
         else:
-            # Scaled dot product between the query and key vectors. keys.transpose(2, 3) changes the shape of keys to (2, 2, 2, 6).
-            attn_scores = queries @ keys.transpose(2, 3)  # attn_scores shape: (2, 2, 6, 6).
+            attn_scores = queries @ keys.transpose(2, 3)
             K = attn_scores.size(-1)
             if num_tokens == K:
                 causal_mask = torch.triu(
@@ -131,23 +126,19 @@ class MultiHeadAttention(nn.Module):
                     diagonal=1,
                 )
             else:
-                # Cached: need to offset the diagonal by (K − num_tokens)
-                offset = K - num_tokens  # number of tokens already in cache before this chunk
-                row_idx = torch.arange(num_tokens, device=x.device).unsqueeze(1)  # (num_tokens, 1)
-                col_idx = torch.arange(K, device=x.device).unsqueeze(0)  # (1, K)
-                causal_mask = row_idx + offset < col_idx  # True where j > i+offset
+                # KV-cache: offset the diagonal by the number of already-cached tokens.
+                offset = K - num_tokens
+                row_idx = torch.arange(num_tokens, device=x.device).unsqueeze(1)
+                col_idx = torch.arange(K, device=x.device).unsqueeze(0)
+                causal_mask = row_idx + offset < col_idx
 
             attn_scores.masked_fill_(causal_mask.unsqueeze(0).unsqueeze(0), -torch.inf)
-
             attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim=-1)
             attn_weights = self.dropout(attn_weights)
             context_vec = (attn_weights @ values).transpose(1, 2)
 
-            # Combine heads, where self.d_out = self.num_heads * self.head_dim
-            context_vec = context_vec.contiguous().view(batch_size, num_tokens, self.d_out)
-            context_vec = self.out_proj(context_vec)
-
-        return context_vec
+        context_vec = context_vec.contiguous().view(batch_size, num_tokens, self.d_out)
+        return self.out_proj(context_vec)
 
     def apply_tp(
         self,
@@ -169,21 +160,11 @@ class MultiHeadAttention(nn.Module):
         )
 
         plan = {
-            "w_q": colwise_parallel(
-                output_layouts=None,  # if self.q_norm is None else Shard(1),
-                use_local_output=self.q_norm is None,
-            ),
-            "w_k": colwise_parallel(
-                output_layouts=None,  # if self.k_norm is None else Shard(1),
-                use_local_output=self.k_norm is None,
-            ),
-            "w_v": colwise_parallel(),
-            "w_out": rowwise_parallel(output_layouts=output_layout, use_local_output=use_local_output),
+            "w_query": colwise_parallel(),
+            "w_key": colwise_parallel(),
+            "w_value": colwise_parallel(),
+            "out_proj": rowwise_parallel(output_layouts=output_layout, use_local_output=use_local_output),
         }
-        # if self.q_norm is not None:
-        #     plan["q_norm"] = SequenceParallel(use_local_output=True, output_layouts=Shard(-1))
-        # if self.k_norm is not None:
-        #     plan["k_norm"] = SequenceParallel(use_local_output=True, output_layouts=Shard(-1))
 
         parallelize_module(
             module=self,

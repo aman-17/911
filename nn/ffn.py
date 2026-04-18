@@ -9,8 +9,6 @@ from torch.distributed.tensor import Placement, Replicate  # , Shard
 from torch.distributed.tensor.parallel import parallelize_module
 
 from nn.activations import GELU
-
-# from nn.distributed.parallel.tensor_parallel import SequenceParallel
 from nn.distributed.utils import get_tp_wrappers
 from nn.utils import autocast_precision
 
@@ -24,11 +22,6 @@ class FeedForward(nn.Module):
         self.w1 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
         self.w2 = nn.Linear(self.hidden_dim, self.emb_dim, dtype=self.dtype)
         self.w3 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
-        # self.layers = nn.Sequential(
-        #     nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"]),
-        #     GELU(),
-        #     nn.Linear(4 * cfg["emb_dim"], cfg["emb_dim"]),
-        # )
 
     def forward(self, x):
         x = x.to(self.dtype)
@@ -120,11 +113,6 @@ class NormalizedFeedForward(nn.Module):
         self.w1 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
         self.w2 = nn.Linear(self.hidden_dim, self.emb_dim, dtype=self.dtype)
         self.w3 = nn.Linear(self.emb_dim, self.hidden_dim, dtype=self.dtype)
-        # self.layers = nn.Sequential(
-        #     nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"]),
-        #     GELU(),
-        #     nn.Linear(4 * cfg["emb_dim"], cfg["emb_dim"]),
-        # )
         self.sw_init_value = 1.0
         self.sw_init_scaling = 1.0
         self.sw1 = torch.nn.Parameter(torch.empty(self.hidden_dim, dtype=self.dtype))

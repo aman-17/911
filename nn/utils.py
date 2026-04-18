@@ -49,21 +49,6 @@ def generate_text_simple(
     device = next(model.parameters()).device
     idx = idx.to(device).unsqueeze(0)
 
-    # for _ in range(max_new_tokens):
-    #     idx_cond = idx[:, -context_size:]
-
-    #     with torch.no_grad():
-    #         # if use_cache:
-    #         #     model.reset_kv_cache()
-    #         #     logits = model(idx_cond, use_cache=True)
-    #         # else:
-    #         #     logits = model(idx_cond, use_cache=False)
-    #         logits = model(idx_cond)
-    #         logits = logits[:, -1, :]
-    #         probas = torch.softmax(logits, dim=-1)
-    #         idx_next = torch.argmax(probas, dim=-1, keepdim=True)
-    #         idx = torch.cat((idx, idx_next), dim=1)
-
     with torch.no_grad():
         if use_cache:
             model.reset_kv_cache()

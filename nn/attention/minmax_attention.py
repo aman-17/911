@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from nn.activations import SiLU
 from nn.norms import T5LayerNorm
 
 
@@ -36,7 +35,6 @@ class MinMaxAttention(nn.Module):
         self.output_gate = nn.Linear(d_in, self.head_dim * num_heads, bias=qkv_bias)
         self.out_proj = nn.Linear(self.head_dim * num_heads, d_out, bias=qkv_bias)
 
-        self.act = SiLU()
         self.norm = T5LayerNorm(self.head_dim * num_heads)
 
         self.offset = 0
@@ -81,8 +79,7 @@ class MinMaxAttention(nn.Module):
         """
         batch_size, seq_len, _ = x.shape
 
-        # Project to Q, K, V
-        qkv = self.act(self.qkv_proj(x))
+        qkv = F.silu(self.qkv_proj(x))
         new_shape = qkv.size()[:-1] + (self.num_heads, -1)
         qkv = qkv.view(*new_shape)
         q, k, v = torch.split(qkv, [self.head_dim] * 3, dim=3)
@@ -116,11 +113,7 @@ class MinMaxAttention(nn.Module):
         # Apply normalization and gating
         output = self.norm(output)
         output = F.sigmoid(self.output_gate(x)) * output
-        output = self.out_proj(output)
-
-        if use_cache:
-            return output
-        return output
+        return self.out_proj(output)
 
     def _compute_full_attention(self, q, k, v, slope_rate, attn_mask=None):
         """Compute attention for full sequence"""

@@ -326,21 +326,16 @@ def calc_loss_batch(input_batch, target_batch, model, device) -> tuple[torch.Ten
 def calc_total_loss_for_dataset_v1(data_loader, model, device, num_batches=None) -> tuple[float, float]:
     total_ce_loss = 0.0
     total_ze_loss = 0.0
-    if num_batches is None:
-        num_batches = len(data_loader)
-        print(f"Calculating loss for {num_batches} batches")
-    else:
-        num_batches = min(num_batches, len(data_loader))
-        print(f"Calculating loss for {num_batches} batches")
+    num_batches = min(num_batches, len(data_loader)) if num_batches is not None else len(data_loader)
 
     for i, (input_batch, target_batch) in enumerate(data_loader):
-        if i < num_batches:
-            ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)
-            total_ce_loss += ce_loss.item()
-            total_ze_loss += z_loss.item()
-        else:
+        if i >= num_batches:
             break
-    return total_ce_loss / (num_batches + 0.000001), total_ze_loss / (num_batches + 0.000001)
+        ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)
+        total_ce_loss += ce_loss.item()
+        total_ze_loss += z_loss.item()
+
+    return total_ce_loss / max(1, num_batches), total_ze_loss / max(1, num_batches)
 
 
 def calc_total_loss(data_loader, model, device, num_batches=None) -> tuple[float, float]:
