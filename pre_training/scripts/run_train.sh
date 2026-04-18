@@ -9,7 +9,7 @@ from beaker import Beaker, ExperimentSpec, TaskSpec, TaskContext, ResultSpec, Ta
 
 b = Beaker.from_env(default_workspace="ai2/oe-support")
 
-pipeline_cmd = "python train.py"
+pipeline_cmd = "python pre_training/train.py"
 commands = []
 commands.extend([
     "git clone https://github.com/aman-17/911.git",

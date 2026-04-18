@@ -32,6 +32,7 @@ dependencies = [
 Homepage = "https://github.com/aman-17/911"
 
 [tool.setuptools]
+package-dir = {"" = "pre_training"}
 packages = ["nn"]
 
 [project.optional-dependencies]
