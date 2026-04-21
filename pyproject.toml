@@ -32,8 +32,8 @@ dependencies = [
 Homepage = "https://github.com/aman-17/911"
 
 [tool.setuptools]
-package-dir = {"" = "pre_training"}
-packages = ["nn"]
+packages = ["nn", "post_training", "post_training.inference", "post_training.data", "post_training.data.web_crawling"]
+package-dir = {"nn" = "pre_training/nn", "" = "."}
 
 [project.optional-dependencies]
 workflow = [

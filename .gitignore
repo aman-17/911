@@ -34,3 +34,5 @@ Icon
 .idea_modules/
 .ipynb_checkpoints
 wandb/
+*.json
+*.jsonl
