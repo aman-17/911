@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-
 from nn.attention.utils import precompute_freqs_cis
 from nn.norms import RMSNorm
 from nn.transfomer.block.llama_transformer import LlamaTransformerBlock

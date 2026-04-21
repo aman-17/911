@@ -4,14 +4,13 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributed import DeviceMesh
-from torch.distributed.tensor import Placement, Replicate, Shard
-from torch.distributed.tensor.parallel import parallelize_module
-
 from nn.distributed.parallel.tensor_parallel import SequenceParallel
 from nn.distributed.utils import get_tp_wrappers
 from nn.norms import Qwen3RMSNorm
 from nn.rope import RotaryPositionalEmbeddings
+from torch.distributed import DeviceMesh
+from torch.distributed.tensor import Placement, Replicate, Shard
+from torch.distributed.tensor.parallel import parallelize_module
 
 
 class GroupedQueryAttention(nn.Module):

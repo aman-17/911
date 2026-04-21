@@ -2,7 +2,6 @@ import math
 
 import torch
 import torch.nn as nn
-
 from nn.norms import LayerNorm
 from nn.transfomer.block.gpt_transformer import GPTTransformerBlock
 from nn.transfomer.block.nanoGPT_transformer import nanoGPTTransformerBlock

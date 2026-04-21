@@ -1,5 +1,4 @@
 import torch.nn as nn
-
 from nn.attention.multihead_attention import MultiHeadAttention
 from nn.attention.multihead_latent_attention import MultiHeadLatentAttention
 from nn.attention.native_sparse_attention import NativeSparseAttention

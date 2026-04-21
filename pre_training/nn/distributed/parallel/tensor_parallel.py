@@ -5,11 +5,10 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+from nn.distributed.config import Config
 from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Shard, distribute_module
 from torch.distributed.tensor.parallel import SequenceParallel as _SequenceParallel
-
-from nn.distributed.config import Config
 
 log = logging.getLogger(__name__)
 
