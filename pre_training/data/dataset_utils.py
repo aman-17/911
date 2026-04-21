@@ -3,9 +3,8 @@ import os
 import numpy as np
 import tiktoken
 import torch.distributed as dist
-from torch.utils.data import DataLoader
-
 from data.data_loader import IterableDatasetTargaV1
+from torch.utils.data import DataLoader
 
 
 def load_npy_files_lazy(data_dir, split="train"):

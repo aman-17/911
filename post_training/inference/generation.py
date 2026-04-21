@@ -10,11 +10,7 @@ SYSTEM_PROMPT = (
 
 
 def render_prompt(question: str) -> str:
-    return (
-        f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
-        f"<|im_start|>user\n{question}<|im_end|>\n"
-        f"<|im_start|>assistant\n"
-    )
+    return f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n" f"<|im_start|>user\n{question}<|im_end|>\n" f"<|im_start|>assistant\n"
 
 
 __all__ = ["render_prompt", "generate_top_p"]

@@ -3,7 +3,6 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-
 from nn.attention.utils import apply_rotary_emb
 from nn.norms import RMSNorm
 from nn.rope import RotaryPositionalEmbeddings

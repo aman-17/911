@@ -1,19 +1,14 @@
 import json
-import requests
 from pathlib import Path
 from pprint import pprint
 
+import requests
+
+
 def load_math_train(local_path: str = "math_train.json", save_copy: bool = True) -> list:
     path = Path(local_path)
-    url = (
-        "https://raw.githubusercontent.com/rasbt/"
-        "math_full_minus_math500/refs/heads/main/"
-        "math_full_minus_math500.json"
-    )
-    backup_url = (
-        "https://f001.backblazeb2.com/file/reasoning-from-scratch/"
-        "MATH/math_full_minus_math500.json"
-    )
+    url = "https://raw.githubusercontent.com/rasbt/" "math_full_minus_math500/refs/heads/main/" "math_full_minus_math500.json"
+    backup_url = "https://f001.backblazeb2.com/file/reasoning-from-scratch/" "MATH/math_full_minus_math500.json"
 
     if path.exists():
         with path.open("r", encoding="utf-8") as f:
@@ -34,6 +29,7 @@ def load_math_train(local_path: str = "math_train.json", save_copy: bool = True)
             json.dump(data, f, indent=2)
 
     return data
+
 
 if __name__ == "__main__":
     data = load_math_train()

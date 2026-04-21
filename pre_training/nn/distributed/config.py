@@ -19,11 +19,10 @@ from typing import (
 
 import torch
 from cached_path import cached_path
+from callbacks.exceptions import ConfigurationError
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
 from typing_extensions import Self
-
-from callbacks.exceptions import ConfigurationError
 
 
 class StrEnum(str, Enum):

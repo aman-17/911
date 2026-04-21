@@ -50,6 +50,7 @@ def sample_response(
         "prompt_len": prompt_len,
     }
 
+
 if __name__ == "__main__":
     from post_training.data.data_tokenizer import load_model_and_tokenizer
     from post_training.inference.generation import render_prompt

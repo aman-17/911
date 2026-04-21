@@ -5,12 +5,11 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
+from nn.distributed.utils import get_tp_wrappers
+from nn.rope import RotaryPositionalEmbeddings
 from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Replicate  # , Shard
 from torch.distributed.tensor.parallel import parallelize_module
-
-from nn.distributed.utils import get_tp_wrappers
-from nn.rope import RotaryPositionalEmbeddings
 
 
 class MultiHeadAttention(nn.Module):
