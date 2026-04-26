@@ -27,11 +27,12 @@ class FeatureSteerer:
     def _hook(self, _module: torch.nn.Module, _input: tuple, output: torch.Tensor | tuple) -> torch.Tensor | tuple:
         hidden = output[0] if isinstance(output, tuple) else output
         with torch.no_grad():
-            out: SAEOutput = self._sae(hidden)
+            orig_dtype = hidden.dtype
+            out: SAEOutput = self._sae(hidden.float())
             features = out.features.clone()
             for idx, scale in self._scales.items():
                 features[..., idx] *= scale
-            steered = self._sae.decode(features) + (hidden - out.recon)
+            steered = (self._sae.decode(features) + (hidden.float() - out.recon)).to(orig_dtype)
         return (steered,) if isinstance(output, tuple) else steered
 
     def __enter__(self) -> "FeatureSteerer":
