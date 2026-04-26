@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "911"
 version = "0.1.0"
-description = "LLM training"
+description = "Research framework for the full LLM lifecycle — pre-training, post-training, and mechanistic interpretability"
 readme = "README.md"
 authors = [
     {name = "Aman Rangapur", email = "amanrangapur@gmail.com"}

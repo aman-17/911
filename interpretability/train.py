@@ -16,7 +16,7 @@ class TrainConfig:
     lr: float = 3e-4
     target_tokens: int = 50_000_000
     checkpoint_path: str = "olmo2_1b_sae_layer8.pt"
-    activation_glob: str = "activations_chunk_*.pt"
+    activation_glob: str = "C:/activations/activations_chunk_*.pt"
     device: str = "cuda"
     log_every: int = 100
 
@@ -36,7 +36,7 @@ def train(cfg: TrainConfig = field(default_factory=TrainConfig)) -> None:
     while tokens_seen < cfg.target_tokens:
         chunk_order = torch.randperm(len(activation_files)).tolist()
         for ci in chunk_order:
-            chunk = torch.load(activation_files[ci], weights_only=True).to(cfg.device)
+            chunk = torch.load(activation_files[ci], weights_only=True).float().to(cfg.device)
             perm = torch.randperm(len(chunk), device=cfg.device)
 
             for i in range(0, len(chunk), cfg.batch_size):
