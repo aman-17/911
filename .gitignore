@@ -36,3 +36,4 @@ Icon
 wandb/
 *.json
 *.jsonl
+*.pt
