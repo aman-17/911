@@ -2,6 +2,7 @@
 Pre-compute top activating token examples per SAE feature.
 Run this once after SAE training — produces feature_analysis.json used by the web app.
 """
+
 import heapq
 import json
 from pathlib import Path
@@ -71,10 +72,7 @@ def run_analysis() -> None:
                             heapq.heapreplace(heap, entry)
 
     result = {
-        str(fidx): [
-            {"activation": round(val, 4), "token": tok, "context": ctx}
-            for val, tok, ctx in sorted(heap, reverse=True)
-        ]
+        str(fidx): [{"activation": round(val, 4), "token": tok, "context": ctx} for val, tok, ctx in sorted(heap, reverse=True)]
         for fidx, heap in enumerate(top_examples)
         if heap
     }

@@ -3,8 +3,9 @@ FastAPI server for SAE feature visualization.
 
 Usage:
     pip install fastapi uvicorn
-    uvicorn interpretability.app:app --reload
+    uvicorn interpretability.app.main:app --reload
 """
+
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -47,7 +48,7 @@ async def lifespan(app: FastAPI):
     _state.clear()
 
 
-app = FastAPI(title="Forge — SAE Feature Explorer", lifespan=lifespan)
+app = FastAPI(title="SAE Feature Explorer", lifespan=lifespan)
 
 
 class AnalyzeRequest(BaseModel):
@@ -103,12 +104,14 @@ def analyze_text(req: AnalyzeRequest):
             key=lambda x: x["activation"],
             reverse=True,
         )[:20]
-        tokens.append({
-            "token": tokenizer.decode([tok_id], skip_special_tokens=False),
-            "token_id": tok_id,
-            "max_activation": round(float(feat_row.max()), 4),
-            "features": top_features,
-        })
+        tokens.append(
+            {
+                "token": tokenizer.decode([tok_id], skip_special_tokens=False),
+                "token_id": tok_id,
+                "max_activation": round(float(feat_row.max()), 4),
+                "features": top_features,
+            }
+        )
 
     return {"tokens": tokens}
 

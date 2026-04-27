@@ -3,792 +3,609 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Forge — SAE Feature Explorer</title>
+  <title>SAE Feature Explorer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:      #0d1117;
-      --panel:   #161b22;
-      --card:    #21262d;
-      --border:  #30363d;
-      --hi:      #3d444d;
+      --bg:          #0e0e0e;
+      --panel:       #151515;
+      --card:        #1c1c1c;
+      --card-hover:  #212121;
+      --border:      #272727;
+      --border-hi:   #363636;
 
-      --text:    #e6edf3;
-      --sub:     #8b949e;
-      --muted:   #484f58;
+      --text:        #e8e8e8;
+      --text-2:      #888;
+      --text-3:      #484848;
 
-      --violet:        #818cf8;
-      --violet-bg:     rgba(129,140,248,0.1);
-      --violet-border: rgba(129,140,248,0.3);
+      --violet:        #8b5cf6;
+      --violet-light:  #a78bfa;
+      --violet-bg:     rgba(139,92,246,.09);
+      --violet-border: rgba(139,92,246,.22);
+      --violet-glow:   rgba(139,92,246,.1);
 
-      --orange:    #fb923c;
-      --green:     #3fb950;
-      --red:       #f85149;
+      --amber:  #f59e0b;
+      --green:  #10b981;
+      --red:    #f43f5e;
 
-      --r:  8px;
-      --r2: 6px;
-      --sans: 'Inter', system-ui, sans-serif;
+      --r-lg: 14px;
+      --r:    10px;
+      --r-sm:  7px;
+      --r-xs:  5px;
+
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
       --mono: 'JetBrains Mono', monospace;
     }
 
     html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      font-size: 13px;
-      line-height: 1.5;
+      height: 100%; background: var(--bg); color: var(--text);
+      font-family: var(--font); font-size: 14.5px; line-height: 1.5;
       -webkit-font-smoothing: antialiased;
     }
+    body { display: flex; flex-direction: column; overflow: hidden; }
 
-    body {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+    /* ── HEADER ──────────────────────────────────────────────── */
+    .header {
+      height: 52px; padding: 0 22px;
+      display: flex; align-items: center; gap: 14px;
+      background: var(--panel); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; z-index: 50;
     }
-
-    /* ── HEADER ─────────────────────────────────────────────────── */
-    .topbar {
-      height: 48px;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-      flex-shrink: 0;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .brand-mark {
-      width: 24px;
-      height: 24px;
-      background: var(--violet);
-      border-radius: 6px;
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      font-size: 13px;
-      color: #fff;
-      flex-shrink: 0;
-    }
-
-    .brand-name {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text);
-      letter-spacing: -0.3px;
-    }
-
-    .sep {
-      width: 1px;
-      height: 16px;
-      background: var(--border);
-    }
-
-    .topbar-info {
-      font-size: 12px;
-      color: var(--sub);
-    }
-
-    .topbar-gap { flex: 1; }
-
+    .meta { font-size: 13px; color: var(--text-3); }
+    .hgap { flex: 1; }
     .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--green);
-      background: rgba(63,185,80,0.1);
-      border: 1px solid rgba(63,185,80,0.25);
-      border-radius: 20px;
-      padding: 3px 10px;
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12.5px; font-weight: 500; color: var(--green);
+      background: rgba(16,185,129,.07); border: 1px solid rgba(16,185,129,.18);
+      border-radius: 100px; padding: 5px 13px;
     }
-
-    .status-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--green);
+    .sdot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 8px var(--green);
+      animation: pulse 2.2s ease-in-out infinite;
     }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-    /* ── ROOT LAYOUT ────────────────────────────────────────────── */
-    .shell {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
+    /* ── WORKSPACE ───────────────────────────────────────────── */
+    .workspace { flex: 1; display: flex; overflow: hidden; }
 
-    /* ── SIDEBAR ────────────────────────────────────────────────── */
+    /* ── SIDEBAR ─────────────────────────────────────────────── */
     .sidebar {
-      width: 280px;
-      flex-shrink: 0;
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: var(--panel);
+      width: 320px; flex-shrink: 0;
+      background: var(--panel); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
     }
-
-    .sidebar-head {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .sidebar-title {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--sub);
-    }
-
-    .sidebar-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 14px;
-    }
-
-    /* ── MAIN AREA ──────────────────────────────────────────────── */
-    .main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ── TABS ───────────────────────────────────────────────────── */
-    .tabbar {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-      padding: 0 20px;
+    .sb-head {
+      padding: 15px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
       flex-shrink: 0;
     }
+    .label-caps { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--text-3); }
+    .sb-body { flex: 1; overflow-y: auto; padding: 18px 16px; }
 
-    .tab {
-      padding: 12px 16px;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--sub);
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      margin-bottom: -1px;
-      transition: color .15s, border-color .15s;
-      font-family: var(--sans);
-      letter-spacing: -0.1px;
+    .search-row { display: flex; gap: 8px; margin-bottom: 20px; }
+    .search-row input { flex: 1; }
+
+    /* Feature example cards */
+    .feat-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .fchip {
+      font-family: var(--mono); font-size: 12px; font-weight: 500;
+      color: var(--violet-light); background: var(--violet-bg);
+      border: 1px solid var(--violet-border); border-radius: var(--r-xs); padding: 3px 9px;
     }
-
-    .tab.on { color: var(--text); border-bottom-color: var(--violet); }
-    .tab:hover:not(.on) { color: var(--text); }
-
-    .pane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .pane[hidden] { display: none; }
-
-    /* ── FORM CONTROLS ──────────────────────────────────────────── */
-    input[type=number], input[type=text], textarea {
-      width: 100%;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r2);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 12px;
-      padding: 8px 11px;
-      outline: none;
-      transition: border-color .15s;
-    }
-
-    input[type=number]:focus, input[type=text]:focus, textarea:focus {
-      border-color: var(--violet);
-    }
-
-    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-    textarea { resize: none; line-height: 1.6; }
-
-    /* ── BUTTONS ────────────────────────────────────────────────── */
-    button {
-      font-family: var(--sans);
-      font-size: 13px;
-      font-weight: 500;
-      border: none;
-      border-radius: var(--r2);
-      padding: 8px 16px;
-      cursor: pointer;
-      transition: opacity .15s, background .15s;
-      white-space: nowrap;
-    }
-
-    .btn-primary {
-      background: var(--violet);
-      color: #fff;
-    }
-
-    .btn-primary:hover:not(:disabled) { opacity: .85; }
-    .btn-primary:disabled { opacity: .35; cursor: not-allowed; }
-
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--sub);
-    }
-
-    .btn-outline:hover:not(:disabled) { border-color: var(--hi); color: var(--text); }
-    .btn-outline:disabled { opacity: .4; cursor: not-allowed; }
-
-    .btn-xs { padding: 4px 10px; font-size: 12px; }
-
-    /* ── SIDEBAR SEARCH ─────────────────────────────────────────── */
-    .search-group {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .search-group input { flex: 1; }
-
-    /* ── EXAMPLE CARDS ──────────────────────────────────────────── */
-    .feat-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .feat-tag {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--violet);
-      background: var(--violet-bg);
-      border: 1px solid var(--violet-border);
-      border-radius: 4px;
-      padding: 2px 8px;
-    }
-
-    .feat-sub {
-      font-size: 11px;
-      color: var(--muted);
-      margin-left: auto;
-    }
+    .fchip-sub { font-size: 12px; color: var(--text-3); margin-left: auto; }
 
     .ex-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 12px;
-      margin-bottom: 8px;
-    }
-
-    .ex-card:hover { border-color: var(--hi); }
-
-    .ex-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-
-    .tok-badge {
-      font-family: var(--mono);
-      font-size: 11px;
-      background: var(--violet-bg);
-      border: 1px solid var(--violet-border);
-      color: var(--violet);
-      border-radius: 4px;
-      padding: 2px 7px;
-    }
-
-    .act-val {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--orange);
-      font-weight: 500;
-    }
-
-    .progress {
-      height: 3px;
-      background: var(--border);
-      border-radius: 2px;
-      margin-bottom: 10px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--violet), var(--orange));
-      border-radius: 2px;
-    }
-
-    .ex-ctx {
-      font-size: 12px;
-      color: var(--sub);
-      line-height: 1.65;
-      word-break: break-word;
-    }
-
-    /* ── ANALYSIS PANE ──────────────────────────────────────────── */
-    .section {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .field-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--sub);
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-
-    .row-end {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .tip { font-size: 11px; color: var(--muted); }
-
-    /* token heatmap */
-    .tok-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px;
-      align-items: flex-start;
-      min-height: 28px;
-    }
-
-    .tok {
-      font-family: var(--mono);
-      font-size: 12px;
-      padding: 3px 7px;
-      border-radius: 4px;
-      border: 1px solid transparent;
-      cursor: pointer;
-      user-select: none;
-      transition: border-color .1s, transform .1s;
-    }
-
-    .tok:hover { border-color: rgba(255,255,255,.2); transform: translateY(-1px); }
-    .tok.sel { border-color: var(--violet) !important; }
-
-    /* feature detail */
-    .detail-scroll { flex: 1; overflow-y: auto; padding: 16px 20px; }
-
-    .selected-tok {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 13px;
-      color: var(--text);
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r2);
-      padding: 5px 11px;
-      margin-bottom: 14px;
-    }
-
-    .fpill {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      border-radius: var(--r2);
-      border: 1px solid var(--border);
-      background: var(--card);
-      cursor: pointer;
-      margin-bottom: 4px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 12px 14px; margin-bottom: 8px;
       transition: border-color .15s;
     }
+    .ex-card:hover { border-color: var(--border-hi); }
+    .ex-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .ex-tok {
+      font-family: var(--mono); font-size: 12px; color: var(--violet-light);
+      background: var(--violet-bg); border: 1px solid var(--violet-border);
+      border-radius: var(--r-xs); padding: 2px 8px;
+      max-width: 155px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ex-act { font-family: var(--mono); font-size: 12px; color: var(--amber); font-weight: 500; }
+    .bar { height: 2px; background: var(--border); border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--violet), var(--amber)); border-radius: 2px; }
+    .ex-ctx { font-size: 12.5px; color: var(--text-2); line-height: 1.6; word-break: break-word; }
 
-    .fpill:hover { border-color: var(--violet-border); }
+    /* ── MAIN ────────────────────────────────────────────────── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-    .fpill-id {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--violet);
-      min-width: 50px;
+    /* ── TABS ────────────────────────────────────────────────── */
+    .tabbar {
+      height: 46px; padding: 0 28px;
+      display: flex; align-items: flex-end; gap: 2px;
+      background: var(--panel); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .tab {
+      height: 100%; padding: 0 18px;
+      font-size: 14px; font-weight: 500; color: var(--text-3);
+      background: none; border: none; border-bottom: 2px solid transparent;
+      cursor: pointer; font-family: var(--font);
+      transition: color .15s, border-color .15s;
+      display: flex; align-items: center;
+    }
+    .tab.on { color: var(--text); border-bottom-color: var(--violet); }
+    .tab:hover:not(.on) { color: var(--text-2); }
+
+    .pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .pane[hidden] { display: none; }
+
+    /* ── ANALYSIS PANE (single scrolling column) ─────────────── */
+    .a-scroll { flex: 1; overflow-y: auto; padding: 28px 32px; }
+
+    /* Compose input box — Claude-style unified card */
+    .compose {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-lg); margin-bottom: 32px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .compose:focus-within {
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 4px var(--violet-glow);
+    }
+    .compose textarea {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: var(--font);
+      font-size: 15px; line-height: 1.7; resize: none;
+      padding: 18px 20px 12px; min-height: 108px;
+    }
+    .compose textarea::placeholder { color: var(--text-3); }
+    .compose-foot {
+      display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+      padding: 10px 14px; border-top: 1px solid var(--border);
     }
 
-    .fpill-bar { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
-    .fpill-fill { height: 100%; background: linear-gradient(90deg, var(--violet), var(--orange)); border-radius: 2px; }
+    /* Section divider label */
+    .sec-label {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+    }
+    .sec-label-text { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; color: var(--text-3); white-space: nowrap; }
+    .sec-label-rule { flex: 1; height: 1px; background: var(--border); }
 
-    .fpill-val {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--orange);
-      min-width: 44px;
-      text-align: right;
+    /* Token strip */
+    .tok-block { margin-bottom: 32px; }
+    .tok-strip { display: flex; flex-wrap: wrap; gap: 5px; }
+    .tok {
+      font-family: var(--mono); font-size: 14px; padding: 5px 10px;
+      border-radius: var(--r-sm); border: 1.5px solid transparent;
+      cursor: pointer; user-select: none; line-height: 1.35;
+      transition: all .12s;
+    }
+    .tok:hover { border-color: rgba(255,255,255,.1); transform: translateY(-1px); }
+    .tok.sel { border-color: var(--violet) !important; box-shadow: 0 0 0 3px var(--violet-glow); }
+
+    /* Feature detail */
+    .detail-top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .sel-tok-badge {
+      font-family: var(--mono); font-size: 13.5px; color: var(--text);
+      background: var(--card); border: 1px solid var(--border-hi);
+      border-radius: var(--r-sm); padding: 5px 11px;
+    }
+    .detail-hint { font-size: 12.5px; color: var(--text-3); }
+
+    .fpill {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: var(--r-sm);
+      cursor: pointer; margin-bottom: 5px; transition: all .14s;
+    }
+    .fpill:hover { border-color: var(--violet-border); background: var(--card); }
+    .fpill-id { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--violet-light); min-width: 58px; }
+    .fpill-track { flex: 1; height: 4px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .fpill-fill { height: 100%; background: linear-gradient(90deg, var(--violet), var(--amber)); border-radius: 3px; }
+    .fpill-val { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--amber); min-width: 52px; text-align: right; }
+    .fpill-btn {
+      font-size: 11.5px; color: var(--text-3); background: var(--border);
+      border: 1px solid transparent; border-radius: var(--r-xs);
+      padding: 2px 8px; opacity: 0; cursor: pointer;
+      transition: opacity .14s, color .14s, background .14s;
+      white-space: nowrap;
+    }
+    .fpill:hover .fpill-btn { opacity: 1; }
+    .fpill-btn:hover { background: var(--violet-bg); border-color: var(--violet-border); color: var(--violet-light); }
+
+    /* ── STEERING PANE (two-column grid) ─────────────────────── */
+    .s-grid {
+      flex: 1; overflow: hidden;
+      display: grid; grid-template-columns: 400px 1fr;
     }
 
-    /* ── STEERING PANE ──────────────────────────────────────────── */
-    .steer-top {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+    /* Left controls panel */
+    .s-left {
+      border-right: 1px solid var(--border);
+      overflow-y: auto; padding: 26px 24px;
+      display: flex; flex-direction: column; gap: 26px;
     }
+    .s-block { display: flex; flex-direction: column; gap: 10px; }
+    .s-block-title { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; color: var(--text-3); }
 
-    .mix-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
+    .s-textarea {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r); color: var(--text); font-family: var(--font);
+      font-size: 14.5px; line-height: 1.65; padding: 12px 14px;
+      outline: none; resize: none; transition: border-color .2s, box-shadow .2s;
     }
+    .s-textarea:focus { border-color: var(--border-hi); box-shadow: 0 0 0 3px var(--violet-glow); }
+
+    .mixer-add { display: flex; gap: 7px; }
+    .mixer-add input { flex: 1; }
 
     .mix-row {
-      display: grid;
-      grid-template-columns: 58px 1fr 52px 28px;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r2);
-      margin-bottom: 6px;
+      display: grid; grid-template-columns: 56px 1fr 60px 26px;
+      align-items: center; gap: 10px;
+      padding: 9px 12px; background: var(--card);
+      border: 1px solid var(--border); border-radius: var(--r-sm);
+      transition: border-color .15s;
     }
+    .mix-row:hover { border-color: var(--border-hi); }
+    .mix-id { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--violet-light); }
+    .mix-val { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--amber); text-align: right; }
 
-    .mix-id {
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--violet);
-    }
-
-    .mix-val {
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--orange);
-      text-align: right;
-    }
-
-    /* range slider */
     input[type=range] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 3px;
-      background: var(--border);
-      border-radius: 2px;
-      border: none;
-      padding: 0;
-      cursor: pointer;
-      outline: none;
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; background: var(--border);
+      border-radius: 2px; border: none; padding: 0; cursor: pointer; outline: none;
     }
-
     input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 13px;
-      height: 13px;
-      border-radius: 50%;
-      background: var(--violet);
-      border: 2px solid var(--bg);
-      cursor: pointer;
-      transition: transform .1s;
+      -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%;
+      background: var(--violet); border: 2.5px solid var(--bg); cursor: pointer;
+      box-shadow: 0 1px 6px rgba(139,92,246,.45);
+      transition: transform .12s, box-shadow .12s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); box-shadow: 0 2px 12px rgba(139,92,246,.7); }
+    input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--violet); border: 2.5px solid var(--bg); cursor: pointer; }
+
+    .params-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .param label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); margin-bottom: 5px; }
+
+    .gen-row { display: flex; align-items: center; gap: 8px; }
+    .gen-status { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+
+    /* Right: chat output */
+    .s-right { overflow: hidden; display: flex; flex-direction: column; }
+    .chat-scroll {
+      flex: 1; overflow-y: auto; padding: 28px 32px;
+      display: flex; flex-direction: column; gap: 24px;
     }
 
-    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-    input[type=range]::-moz-range-thumb {
-      width: 13px; height: 13px; border-radius: 50%;
-      background: var(--violet); border: 2px solid var(--bg); cursor: pointer;
+    .msg { display: flex; gap: 14px; animation: min .2s ease; }
+    @keyframes min { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    .msg-av {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: grid; place-items: center;
+      font-weight: 600; flex-shrink: 0; margin-top: 2px;
     }
+    .msg-av.user { background: var(--card); color: var(--text-2); font-size: 13.5px; }
+    .msg-av.model { background: linear-gradient(140deg, #8b5cf6, #d946ef); color: #fff; font-size: 12px; }
+    .msg-body { flex: 1; }
+    .msg-name { font-size: 13.5px; font-weight: 600; color: var(--text-2); margin-bottom: 7px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .msg-tag { font-size: 11px; font-weight: 400; color: var(--text-3); background: var(--card); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px 7px; }
+    .msg-text { font-size: 15px; line-height: 1.8; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+    .msg-text.mono { font-family: var(--mono); font-size: 13.5px; line-height: 1.75; }
 
-    .params-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      margin: 12px 0;
-    }
-
-    .param label {
-      display: block;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-      color: var(--muted);
-      margin-bottom: 5px;
-    }
-
-    .gen-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .gen-status {
-      margin-left: auto;
-      font-size: 12px;
-      font-family: var(--mono);
-      color: var(--sub);
-    }
-
-    /* output */
-    .output-wrap {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px 20px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .output-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
-
-    .output-box {
-      flex: 1;
-      min-height: 120px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 16px;
-      font-family: var(--mono);
-      font-size: 13px;
-      line-height: 1.85;
-      white-space: pre-wrap;
-      word-break: break-word;
-      color: var(--text);
-    }
-
-    .cursor {
-      display: inline-block;
-      width: 2px;
-      height: 1em;
-      background: var(--violet);
-      vertical-align: text-bottom;
-      margin-left: 1px;
-      animation: blink 1s step-end infinite;
-    }
-
+    .cursor { display: inline-block; width: 2px; height: 1.1em; background: var(--violet); vertical-align: text-bottom; margin-left: 2px; border-radius: 2px; animation: blink .9s step-end infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* ── MISC ───────────────────────────────────────────────────── */
-    .empty {
-      color: var(--muted);
-      font-size: 13px;
-      text-align: center;
-      padding: 36px 16px;
-      line-height: 1.7;
+    /* ── FORM CONTROLS ───────────────────────────────────────── */
+    input[type=number], input[type=text] {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r-sm); color: var(--text); font-family: var(--font);
+      font-size: 14px; padding: 8px 12px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
     }
+    input:focus { border-color: var(--border-hi); box-shadow: 0 0 0 3px var(--violet-glow); }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
-    .spinner {
-      display: inline-block;
-      width: 11px;
-      height: 11px;
-      border: 2px solid var(--border);
-      border-top-color: var(--violet);
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-      vertical-align: middle;
-      margin-right: 5px;
+    /* ── BUTTONS ─────────────────────────────────────────────── */
+    button {
+      font-family: var(--font); font-size: 14px; font-weight: 500;
+      border: none; border-radius: var(--r-sm); padding: 9px 18px;
+      cursor: pointer; transition: all .14s; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 7px;
     }
+    .btn-primary {
+      background: var(--violet); color: #fff;
+      box-shadow: 0 1px 8px rgba(139,92,246,.35);
+    }
+    .btn-primary:hover:not(:disabled) { background: #7c3aed; box-shadow: 0 3px 16px rgba(139,92,246,.55); transform: translateY(-1px); }
+    .btn-primary:active:not(:disabled) { transform: none; }
+    .btn-primary:disabled { opacity: .3; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-ghost {
+      background: var(--card); color: var(--text-2); border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--border-hi); color: var(--text); background: var(--card-hover); }
+    .btn-ghost:disabled { opacity: .35; cursor: not-allowed; }
 
-    ::-webkit-scrollbar { width: 4px; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; }
+    .btn-xs { padding: 4px 9px; font-size: 12px; }
+    .btn-icon { padding: 5px 8px; }
+
+    /* ── EMPTY STATES ────────────────────────────────────────── */
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 48px 24px; gap: 10px; }
+    .empty-icon { opacity: .3; margin-bottom: 6px; }
+    .empty-title { font-size: 15px; font-weight: 500; color: var(--text-2); }
+    .empty-body { font-size: 13.5px; color: var(--text-3); line-height: 1.65; max-width: 280px; }
+
+    /* ── MISC ────────────────────────────────────────────────── */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--violet); border-radius: 50%; animation: spin .5s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .kbd { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); background: var(--border); border-radius: 4px; padding: 2px 6px; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--hi); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+
+    /* ── TOASTS ──────────────────────────────────────────────── */
+    #toasts { position: fixed; bottom: 22px; right: 22px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 10px 16px;
+      font-size: 13.5px; color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+      display: flex; align-items: center; gap: 9px;
+      min-width: 180px; max-width: 360px;
+      animation: tin .18s ease;
+    }
+    @keyframes tin { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    @keyframes tout { to{opacity:0;transform:translateY(8px)} }
+    .toast.out { animation: tout .22s ease forwards; }
+    .t-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .toast.ok  .t-dot { background: var(--green); }
+    .toast.err .t-dot { background: var(--red); }
+    .toast.inf .t-dot { background: var(--violet-light); }
   </style>
 </head>
 <body>
 
-<!-- ── TOP BAR ──────────────────────────────────────────────────── -->
-<div class="topbar">
-  <div class="brand">
-    <div class="brand-mark">F</div>
-    <span class="brand-name">Forge</span>
+<!-- ── HEADER ────────────────────────────────────────────────────── -->
+<header class="header">
+  <span class="meta">OLMo-2 1B &nbsp;·&nbsp; Layer 8 &nbsp;·&nbsp; 32,768 features</span>
+  <div class="hgap"></div>
+  <div class="status-pill">
+    <div class="sdot"></div>
+    SAE loaded
   </div>
-  <div class="sep"></div>
-  <span class="topbar-info">OLMo-2 1B &nbsp;·&nbsp; Layer 8 &nbsp;·&nbsp; 32 768 features</span>
-  <div class="topbar-gap"></div>
-  <div class="status-pill"><div class="status-dot"></div>SAE loaded</div>
-</div>
+</header>
 
-<div class="shell">
+<div class="workspace">
 
   <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
-  <div class="sidebar">
-    <div class="sidebar-head">
-      <span class="sidebar-title">Feature Browser</span>
-      <button class="btn-outline btn-xs" id="steer-this-btn" style="display:none" onclick="steerLoadedFeature()">Steer →</button>
+  <aside class="sidebar">
+    <div class="sb-head">
+      <span class="label-caps">Feature Browser</span>
+      <button class="btn-ghost btn-xs" id="steer-this-btn" style="display:none" onclick="steerLoadedFeature()">→ Mixer</button>
     </div>
-    <div class="sidebar-body">
-      <div class="search-group">
-        <input type="number" id="feature-input" min="0" max="32767" placeholder="Index 0 – 32767" />
-        <button class="btn-primary" id="load-btn">Load</button>
+    <div class="sb-body">
+      <div class="search-row">
+        <input type="number" id="feature-input" min="0" max="32767" placeholder="Index 0–32767" />
+        <button class="btn-primary btn-sm" id="load-btn">Load</button>
       </div>
       <div id="feature-results">
-        <div class="empty">Enter a feature index to browse its top activating examples.</div>
+        <div class="empty">
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+          <div class="empty-title">Browse features</div>
+          <div class="empty-body">Enter any feature index to see its top activating examples from the dataset.</div>
+        </div>
       </div>
     </div>
-  </div>
+  </aside>
 
   <!-- ── MAIN ─────────────────────────────────────────────────── -->
   <div class="main">
     <div class="tabbar">
-      <button class="tab on" onclick="switchTab('analysis', this)">Analysis</button>
-      <button class="tab" onclick="switchTab('steering', this)">Live Steering</button>
+      <button class="tab on" onclick="switchTab('analysis',this)">Analysis</button>
+      <button class="tab" onclick="switchTab('steering',this)">Live Steering</button>
     </div>
 
     <!-- ANALYSIS PANE -->
     <div class="pane" id="tab-analysis">
+      <div class="a-scroll">
 
-      <div class="section">
-        <div class="field-label">Input text</div>
-        <textarea id="text-input" rows="3" placeholder="Paste any text to see which SAE features activate on each token…"></textarea>
-        <div class="row-end">
-          <span class="tip">Ctrl+Enter</span>
-          <button class="btn-primary" id="analyze-btn">Analyze</button>
+        <!-- Compose -->
+        <div class="compose">
+          <textarea id="text-input" rows="4"
+            placeholder="Paste any text to see which SAE features activate on each token…"></textarea>
+          <div class="compose-foot">
+            <span class="kbd">Ctrl ↵</span>
+            <button class="btn-primary btn-sm" id="analyze-btn">Analyze</button>
+          </div>
         </div>
-      </div>
 
-      <div class="section">
-        <div class="field-label" style="margin-bottom:10px">Tokens — click to inspect</div>
-        <div class="tok-strip" id="token-wrap">
-          <span style="color:var(--muted);font-family:var(--mono);font-size:12px">Run analysis to see tokens.</span>
+        <!-- Tokens -->
+        <div class="tok-block">
+          <div class="sec-label">
+            <span class="sec-label-text">Tokens</span>
+            <div class="sec-label-rule"></div>
+          </div>
+          <div class="tok-strip" id="token-wrap">
+            <span style="color:var(--text-3);font-family:var(--mono);font-size:13px">Run analysis to see tokens.</span>
+          </div>
         </div>
-      </div>
 
-      <div class="detail-scroll" id="detail-area">
-        <div class="empty">
-          Select a token above to see its active SAE features.<br>
-          <span style="font-size:11px">Right-click any feature to send it to the steering mixer.</span>
+        <!-- Feature detail -->
+        <div id="detail-area">
+          <div class="sec-label">
+            <span class="sec-label-text">Feature detail</span>
+            <div class="sec-label-rule"></div>
+          </div>
+          <div class="empty" style="padding:32px 0">
+            <div class="empty-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <div class="empty-title">Select a token</div>
+            <div class="empty-body">Click any highlighted token to inspect its active SAE features. Right-click a feature to send it straight to the steering mixer.</div>
+          </div>
         </div>
-      </div>
 
+      </div>
     </div>
 
     <!-- STEERING PANE -->
     <div class="pane" id="tab-steering" hidden>
+      <div class="s-grid">
 
-      <div class="steer-top">
-        <div class="field-label" style="margin-bottom:8px">Prompt</div>
-        <textarea id="steer-prompt" rows="3" placeholder="Enter a prompt to steer the model's response…"></textarea>
+        <!-- Left: controls -->
+        <div class="s-left">
 
-        <div class="mix-head" style="margin-top:16px">
-          <span class="field-label" style="margin:0">Mixer</span>
-          <button class="btn-outline btn-xs" id="add-feature-btn">+ Add feature</button>
-        </div>
-        <div id="feature-list"></div>
-
-        <div class="params-row">
-          <div class="param">
-            <label>Max tokens</label>
-            <input type="number" id="steer-max-tokens" min="10" max="500" value="200" />
+          <div class="s-block">
+            <div class="s-block-title">Prompt</div>
+            <textarea id="steer-prompt" class="s-textarea" rows="4"
+              placeholder="Enter a prompt to steer the model's response…"></textarea>
           </div>
-          <div class="param">
-            <label>Temperature</label>
-            <input type="number" id="steer-temp" min="0.1" max="2" step="0.1" value="0.8" />
+
+          <div class="s-block">
+            <div class="s-block-title">Feature mixer</div>
+            <div class="mixer-add">
+              <input type="number" id="add-feat-input" min="0" max="32767" placeholder="Feature index" />
+              <button class="btn-ghost btn-sm" id="add-feature-btn">+ Add</button>
+            </div>
+            <div id="feature-list"></div>
           </div>
-          <div class="param">
-            <label>Top-p</label>
-            <input type="number" id="steer-top-p" min="0.1" max="1" step="0.05" value="0.9" />
+
+          <div class="s-block">
+            <div class="s-block-title">Parameters</div>
+            <div class="params-row">
+              <div class="param">
+                <label>Max tokens</label>
+                <input type="number" id="steer-max-tokens" min="10" max="500" value="200" />
+              </div>
+              <div class="param">
+                <label>Temperature</label>
+                <input type="number" id="steer-temp" min="0.1" max="2" step="0.1" value="0.8" />
+              </div>
+              <div class="param">
+                <label>Top-p</label>
+                <input type="number" id="steer-top-p" min="0.1" max="1" step="0.05" value="0.9" />
+              </div>
+            </div>
+          </div>
+
+          <div class="gen-row">
+            <button class="btn-primary" id="steer-btn">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M2 2l8 4-8 4z"/></svg>
+              Generate
+            </button>
+            <button class="btn-ghost" id="steer-stop-btn" disabled>
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="1" width="8" height="8" rx="1.5"/></svg>
+              Stop
+            </button>
+            <span class="gen-status" id="steer-status"></span>
+          </div>
+
+        </div>
+
+        <!-- Right: chat output -->
+        <div class="s-right">
+          <div class="chat-scroll" id="chat-scroll">
+            <div class="empty" id="chat-empty">
+              <div class="empty-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+              </div>
+              <div class="empty-title">Ready to steer</div>
+              <div class="empty-body">Add features to the mixer, write a prompt, and click Generate to see steered output stream in real time.</div>
+            </div>
           </div>
         </div>
 
-        <div class="gen-row">
-          <button class="btn-primary" id="steer-btn">▶&nbsp; Generate</button>
-          <button class="btn-outline" id="steer-stop-btn" disabled>■&nbsp; Stop</button>
-          <span class="gen-status" id="steer-status"></span>
-        </div>
       </div>
-
-      <div class="output-wrap">
-        <div class="output-label">Output</div>
-        <div class="output-box" id="steer-output">
-          <span style="color:var(--muted)">Generated text will stream here…</span>
-        </div>
-      </div>
-
     </div>
+
   </div>
 </div>
+
+<div id="toasts"></div>
 
 <script>
   const $ = id => document.getElementById(id);
   let loadedFeatureIdx = null;
   let steerAbortController = null;
 
-  // ── Tabs ────────────────────────────────────────────────────────
+  // ── Tabs ────────────────────────────────────────────────────────────
 
   function switchTab(name, btn) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
-    document.querySelectorAll('.pane').forEach(t => t.hidden = true);
+    document.querySelectorAll('.pane').forEach(p => p.hidden = true);
     btn.classList.add('on');
     $(`tab-${name}`).hidden = false;
   }
 
-  // ── Feature Browser ─────────────────────────────────────────────
+  // ── Toast ────────────────────────────────────────────────────────────
+
+  function toast(msg, type = 'inf', ms = 2700) {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<div class="t-dot"></div><span>${escHtml(msg)}</span>`;
+    $('toasts').appendChild(el);
+    setTimeout(() => {
+      el.classList.add('out');
+      el.addEventListener('animationend', () => el.remove(), { once: true });
+    }, ms);
+  }
+
+  // ── Feature browser ──────────────────────────────────────────────────
 
   $('load-btn').addEventListener('click', loadFeature);
   $('feature-input').addEventListener('keydown', e => { if (e.key === 'Enter') loadFeature(); });
 
   async function loadFeature() {
     const idx = parseInt($('feature-input').value);
-    if (isNaN(idx) || idx < 0 || idx > 32767) return;
-    $('feature-results').innerHTML = '<span class="spinner"></span>Loading…';
+    if (isNaN(idx) || idx < 0 || idx > 32767) { toast('Enter a valid index (0–32767)', 'err'); return; }
+    $('feature-results').innerHTML = `<div class="empty" style="padding:28px 0"><span class="spinner"></span><div class="empty-body" style="margin-top:12px">Loading feature ${idx}…</div></div>`;
     try {
-      const res = await fetch(`/api/features/${idx}`);
-      const data = await res.json();
+      const r = await fetch(`/api/features/${idx}`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
       renderFeatureExamples(data);
       loadedFeatureIdx = idx;
       $('steer-this-btn').style.display = '';
-    } catch {
-      $('feature-results').innerHTML = '<div class="empty">Failed to load feature.</div>';
+    } catch (err) {
+      $('feature-results').innerHTML = `<div class="empty"><div class="empty-body" style="color:var(--red)">${escHtml(String(err))}</div></div>`;
     }
   }
 
   function renderFeatureExamples({ idx, examples }) {
     if (!examples.length) {
       $('feature-results').innerHTML = `
-        <div class="feat-meta"><span class="feat-tag">#${idx}</span></div>
-        <div class="empty">No examples found for this feature.</div>`;
+        <div class="feat-meta"><span class="fchip">#${idx}</span></div>
+        <div class="empty" style="padding:24px 0"><div class="empty-body">No examples found for this feature.</div></div>`;
       return;
     }
     const maxVal = examples[0].activation;
-    $('feature-results').innerHTML = `
-      <div class="feat-meta">
-        <span class="feat-tag">#${idx}</span>
-        <span class="feat-sub">${examples.length} examples</span>
-      </div>` +
+    $('feature-results').innerHTML =
+      `<div class="feat-meta"><span class="fchip">#${idx}</span><span class="fchip-sub">${examples.length} examples</span></div>` +
       examples.map(ex => {
         const pct = Math.round((ex.activation / maxVal) * 100);
-        const hi = ex.context.replace(ex.token,
-          `<mark style="background:var(--violet-bg);color:var(--violet);border-radius:3px;padding:0 2px">${ex.token}</mark>`);
+        const safeCtx = escHtml(ex.context);
+        const safeTok = escHtml(ex.token);
+        const hi = safeCtx.replace(safeTok,
+          `<mark style="background:var(--violet-bg);color:var(--violet-light);border-radius:3px;padding:0 3px">${safeTok}</mark>`);
         return `<div class="ex-card">
           <div class="ex-top">
-            <span class="tok-badge">${escHtml(ex.token)}</span>
-            <span class="act-val">${ex.activation.toFixed(3)}</span>
+            <span class="ex-tok">${safeTok}</span>
+            <span class="ex-act">${ex.activation.toFixed(3)}</span>
           </div>
-          <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
           <div class="ex-ctx">${hi}</div>
         </div>`;
       }).join('');
@@ -798,37 +615,45 @@
     if (loadedFeatureIdx === null) return;
     addSteerFeature(loadedFeatureIdx);
     switchTab('steering', document.querySelectorAll('.tab')[1]);
+    toast(`Feature #${loadedFeatureIdx} added to mixer`, 'ok');
   }
 
-  // ── Analysis ────────────────────────────────────────────────────
+  // ── Analysis ─────────────────────────────────────────────────────────
 
   let analysisData = null;
 
   $('analyze-btn').addEventListener('click', runAnalysis);
-  $('text-input').addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) runAnalysis(); });
+  $('text-input').addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter') runAnalysis(); });
 
   async function runAnalysis() {
     const text = $('text-input').value.trim();
     if (!text) return;
     const btn = $('analyze-btn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Analyzing…';
-    $('token-wrap').innerHTML = '<span style="color:var(--sub);font-family:var(--mono);font-size:12px">Running…</span>';
-    $('detail-area').innerHTML = '<div class="empty">Select a token to see its active features.</div>';
+    btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+    $('token-wrap').innerHTML = `<span style="color:var(--text-3);font-family:var(--mono);font-size:13px">Computing…</span>`;
+    setDetail(`<div class="empty" style="padding:24px 0"><span class="spinner"></span><div class="empty-body" style="margin-top:12px">Running SAE encoding…</div></div>`);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const r = await fetch('/api/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
-      analysisData = await res.json();
+      if (!r.ok) throw new Error(await r.text());
+      analysisData = await r.json();
       renderTokens(analysisData.tokens);
-    } catch {
-      $('token-wrap').innerHTML = '<span style="color:var(--red);font-family:var(--mono)">Analysis failed.</span>';
+      setDetail(`<div class="empty" style="padding:24px 0"><div class="empty-body">Click a token above to inspect its active features.</div></div>`);
+    } catch (err) {
+      $('token-wrap').innerHTML = `<span style="color:var(--red);font-size:13.5px">${escHtml(String(err))}</span>`;
+      setDetail('');
     } finally {
       btn.disabled = false;
       btn.textContent = 'Analyze';
     }
+  }
+
+  function setDetail(inner) {
+    $('detail-area').innerHTML =
+      `<div class="sec-label"><span class="sec-label-text">Feature detail</span><div class="sec-label-rule"></div></div>` + inner;
   }
 
   function renderTokens(tokens) {
@@ -841,7 +666,7 @@
       el.className = 'tok';
       el.textContent = tok.token.replace('▁', ' ').replace('Ġ', ' ') || '·';
       el.style.background = heatBg(t);
-      el.style.color = t > 0.6 ? '#000' : 'var(--text)';
+      el.style.color = t > 0.65 ? 'rgba(0,0,0,.88)' : 'var(--text)';
       el.title = `max activation: ${tok.max_activation.toFixed(3)}`;
       el.addEventListener('click', () => selectToken(i, el));
       wrap.appendChild(el);
@@ -852,47 +677,46 @@
     document.querySelectorAll('.tok').forEach(t => t.classList.remove('sel'));
     el.classList.add('sel');
     const tok = analysisData.tokens[idx];
-    const area = $('detail-area');
     if (!tok.features.length) {
-      area.innerHTML = `<span class="selected-tok">${escHtml(tok.token)}</span><div class="empty">No features activated on this token.</div>`;
+      setDetail(`<div class="detail-top"><span class="sel-tok-badge">${escHtml(tok.token)}</span></div>
+        <div class="empty" style="padding:20px 0"><div class="empty-body">No features activated on this token.</div></div>`);
       return;
     }
     const maxVal = tok.features[0].activation;
-    area.innerHTML =
-      `<div style="margin-bottom:12px">
-         <div class="field-label" style="margin-bottom:8px">Active features — click to load · right-click to steer</div>
-         <span class="selected-tok">${escHtml(tok.token.trim())}</span>
+    setDetail(
+      `<div class="detail-top">
+         <span class="sel-tok-badge">${escHtml(tok.token.trim())}</span>
+         <span class="detail-hint">${tok.features.length} features &nbsp;·&nbsp; click to browse &nbsp;·&nbsp; right-click to steer</span>
        </div>` +
       tok.features.map(f => {
         const pct = Math.round((f.activation / maxVal) * 100);
-        return `<div class="fpill" onclick="jumpToFeature(${f.idx})" oncontextmenu="steerFeature(event,${f.idx})">
+        return `<div class="fpill" onclick="jumpToFeature(${f.idx})" oncontextmenu="steerFromAnalysis(event,${f.idx})">
           <span class="fpill-id">#${f.idx}</span>
-          <div class="fpill-bar"><div class="fpill-fill" style="width:${pct}%"></div></div>
+          <div class="fpill-track"><div class="fpill-fill" style="width:${pct}%"></div></div>
           <span class="fpill-val">${f.activation.toFixed(3)}</span>
+          <span class="fpill-btn" onclick="event.stopPropagation();steerFromAnalysis(event,${f.idx})">steer →</span>
         </div>`;
-      }).join('');
+      }).join('')
+    );
   }
 
-  function jumpToFeature(idx) {
-    $('feature-input').value = idx;
-    loadFeature();
-  }
+  function jumpToFeature(idx) { $('feature-input').value = idx; loadFeature(); }
 
-  function steerFeature(e, idx) {
+  function steerFromAnalysis(e, idx) {
     e.preventDefault();
     addSteerFeature(idx);
+    toast(`Feature #${idx} added to mixer`, 'ok');
     switchTab('steering', document.querySelectorAll('.tab')[1]);
   }
 
-  // ── Steering ────────────────────────────────────────────────────
+  // ── Steering ─────────────────────────────────────────────────────────
 
   let steeredFeatures = [];
 
   function renderFeatureList() {
     const list = $('feature-list');
     if (!steeredFeatures.length) {
-      list.innerHTML = `<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px 0 4px">
-        No features. Load one in the browser and click "Steer →".</div>`;
+      list.innerHTML = `<div style="font-size:13px;color:var(--text-3);text-align:center;padding:8px 0">No features added yet.</div>`;
       return;
     }
     list.innerHTML = steeredFeatures.map((f, i) => `
@@ -901,7 +725,7 @@
         <input type="range" min="-5" max="10" step="0.5" value="${f.scale}"
           oninput="steeredFeatures[${i}].scale=parseFloat(this.value);this.nextElementSibling.textContent=(parseFloat(this.value)>=0?'+':'')+parseFloat(this.value).toFixed(1)+'×'" />
         <span class="mix-val">${f.scale >= 0 ? '+' : ''}${f.scale.toFixed(1)}×</span>
-        <button class="btn-outline btn-xs" onclick="removeFeature(${i})" style="padding:2px 7px;font-size:14px;line-height:1.3">×</button>
+        <button class="btn-ghost btn-icon btn-xs" onclick="removeFeature(${i})" title="Remove" style="color:var(--text-3)">✕</button>
       </div>`).join('');
   }
 
@@ -911,42 +735,70 @@
     renderFeatureList();
   }
 
-  function removeFeature(i) {
-    steeredFeatures.splice(i, 1);
-    renderFeatureList();
-  }
+  function removeFeature(i) { steeredFeatures.splice(i, 1); renderFeatureList(); }
 
   $('add-feature-btn').addEventListener('click', () => {
-    const idx = parseInt(prompt('Feature index (0–32767):'));
-    if (!isNaN(idx) && idx >= 0 && idx <= 32767) addSteerFeature(idx);
+    const idx = parseInt($('add-feat-input').value);
+    if (!isNaN(idx) && idx >= 0 && idx <= 32767) {
+      addSteerFeature(idx); $('add-feat-input').value = '';
+      toast(`Feature #${idx} added`, 'ok');
+    } else {
+      toast('Enter a valid index (0–32767)', 'err');
+    }
   });
 
+  $('add-feat-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('add-feature-btn').click(); });
   $('steer-btn').addEventListener('click', runSteering);
   $('steer-stop-btn').addEventListener('click', () => { if (steerAbortController) steerAbortController.abort(); });
 
   async function runSteering() {
     const prompt = $('steer-prompt').value.trim();
-    if (!prompt) return;
-    if (!steeredFeatures.length) { alert('Add at least one feature to steer.'); return; }
+    if (!prompt) { toast('Enter a prompt first', 'err'); return; }
+    if (!steeredFeatures.length) { toast('Add at least one feature to the mixer', 'err'); return; }
 
-    const btn = $('steer-btn');
-    const stop = $('steer-stop-btn');
-    const out = $('steer-output');
-    const status = $('steer-status');
-
+    const btn = $('steer-btn'), stop = $('steer-stop-btn'), status = $('steer-status');
+    const scroll = $('chat-scroll');
     btn.disabled = true; stop.disabled = false;
-    out.innerHTML = '<span class="cursor"></span>';
-    status.textContent = 'Generating…';
-    steerAbortController = new AbortController();
+    status.innerHTML = '<span class="spinner"></span>';
 
+    const emptyEl = $('chat-empty');
+    if (emptyEl) emptyEl.remove();
+
+    // User bubble
+    const userMsg = document.createElement('div');
+    userMsg.className = 'msg';
+    userMsg.innerHTML = `
+      <div class="msg-av user">U</div>
+      <div class="msg-body">
+        <div class="msg-name">User</div>
+        <div class="msg-text">${escHtml(prompt)}</div>
+      </div>`;
+    scroll.appendChild(userMsg);
+
+    // Model bubble
+    const modelMsg = document.createElement('div');
+    modelMsg.className = 'msg';
+    const textEl = document.createElement('div');
+    textEl.className = 'msg-text mono';
+    textEl.innerHTML = '<span class="cursor"></span>';
+    const tagStr = steeredFeatures.map(f => `#${f.idx} ${f.scale >= 0 ? '+' : ''}${f.scale.toFixed(1)}×`).join(', ');
+    modelMsg.innerHTML = `
+      <div class="msg-av model">F</div>
+      <div class="msg-body">
+        <div class="msg-name">Model <span class="msg-tag">steered · ${escHtml(tagStr)}</span></div>
+      </div>`;
+    modelMsg.querySelector('.msg-body').appendChild(textEl);
+    scroll.appendChild(modelMsg);
+    scroll.scrollTop = scroll.scrollHeight;
+
+    steerAbortController = new AbortController();
     let text = '', count = 0;
+
     try {
       const res = await fetch('/api/steer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt,
-          features: steeredFeatures,
+          prompt, features: steeredFeatures,
           max_new_tokens: parseInt($('steer-max-tokens').value),
           temperature: parseFloat($('steer-temp').value),
           top_p: parseFloat($('steer-top-p').value),
@@ -970,32 +822,32 @@
           try {
             const { token } = JSON.parse(payload);
             text += token; count++;
-            out.innerHTML = escHtml(text) + '<span class="cursor"></span>';
-            out.scrollTop = out.scrollHeight;
+            textEl.innerHTML = escHtml(text) + '<span class="cursor"></span>';
+            scroll.scrollTop = scroll.scrollHeight;
           } catch { /* partial */ }
         }
       }
     } catch (err) {
       if (err.name !== 'AbortError')
-        out.innerHTML = `<span style="color:var(--red)">${escHtml(String(err))}</span>`;
+        textEl.innerHTML = `<span style="color:var(--red)">${escHtml(String(err))}</span>`;
     } finally {
-      out.innerHTML = escHtml(text) || '<span style="color:var(--muted)">No output.</span>';
+      textEl.innerHTML = escHtml(text) || `<span style="color:var(--text-3)">No output generated.</span>`;
       status.textContent = count ? `${count} tokens` : '';
-      btn.disabled = false; stop.disabled = true;
-      steerAbortController = null;
+      btn.disabled = false; stop.disabled = true; steerAbortController = null;
     }
   }
 
   renderFeatureList();
 
-  // ── Utils ────────────────────────────────────────────────────────
+  // ── Utils ────────────────────────────────────────────────────────────
 
   function heatBg(t) {
-    if (t < 0.05) return 'transparent';
-    const a = Math.min(0.9, t * 1.2);
-    const g = Math.round(146 * (1 - t * 0.7));
-    const b = Math.round(60 * (1 - t));
-    return `rgba(251,${g},${b},${a})`;
+    if (t < 0.04) return 'transparent';
+    const a = Math.min(0.9, 0.15 + t * 0.78);
+    const r = Math.round(139 + (245 - 139) * t);
+    const g = Math.round(92 * (1 - t * 0.7));
+    const b = Math.round(246 * (1 - t) + 11 * t);
+    return `rgba(${r},${g},${b},${a.toFixed(2)})`;
   }
 
   function escHtml(s) {
