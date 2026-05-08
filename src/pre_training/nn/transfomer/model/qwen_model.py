@@ -1,8 +1,8 @@
 import torch.nn as nn
-from nn.norms import Qwen3RMSNorm
-from nn.rope import RotaryPositionalEmbeddings
-from nn.transfomer.block.qwen3_transformer import Qwen3TransformerBlock
-from nn.utils import autocast_precision
+from pre_training.nn.norms import Qwen3RMSNorm
+from pre_training.nn.rope import RotaryPositionalEmbeddings
+from pre_training.nn.transfomer.block.qwen3_transformer import Qwen3TransformerBlock
+from pre_training.nn.utils import autocast_precision
 
 
 class Qwen3Model(nn.Module):
@@ -25,6 +25,7 @@ class Qwen3Model(nn.Module):
         )
         self.register_buffer("cos", cos, persistent=False)
         self.register_buffer("sin", sin, persistent=False)
+        self.ptr_current_pos = 0
 
     def forward(self, in_idx, use_cache=False):
         tok_embeds = self.tok_emb(in_idx)

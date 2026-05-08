@@ -1,9 +1,12 @@
 import argparse
+import logging
 import os
 import re
 
 import requests
 from bs4 import BeautifulSoup
+
+log = logging.getLogger(__name__)
 
 
 def parse_wiki_page(url):
@@ -68,8 +71,9 @@ def main():
     if text:
         save_to_file(text, args.url, args.output)
     else:
-        print("Failed to extract text from the provided URL")
+        log.warning("Failed to extract text from %s", args.url)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     main()

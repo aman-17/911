@@ -1,97 +1,203 @@
 # 911
 
-A research framework for the full LLM lifecycle - pre-training, post-training, and mechanistic interpretability - built from scratch in PyTorch.
+A mini training infrastructure for LLMs from scratch: pre-training, post-training inference, and mechanistic interpretability with Sparse Autoencoders, built in pure PyTorch.
+
+```
+pip install 911
+```
 
 ---
 
-## What's inside
+## Components
 
-| Component | What it does |
+| Package | Description |
 |---|---|
-| `pre_training/` | Train language models from scratch with FSDP, tensor parallelism, and multiple architecture variants |
-| `post_training/` | Inference utilities, KV-cache generation, and nucleus sampling rollouts |
-| `interpretability/` | Train Sparse Autoencoders on model activations and steer features at generation time |
+| `pre_training` | Train GPT, LLaMA, Qwen3, nGPT from scratch with FSDP multi-GPU |
+| `post_training` | KV-cache generation, nucleus sampling, rollout for RLHF pipelines |
+| `interpretability` | Collect activations, train TopK SAEs, steer features at inference |
 
 ---
 
 ## Installation
 
+Requires Python ≥ 3.11 and PyTorch ≥ 2.6.
+
 ```bash
-git clone https://github.com/aman-17/911
-cd 911
-pip install -e .
+pip install 911
 ```
 
-Requires Python 3.11+ and PyTorch 2.7+ with CUDA 12.8:
+For GPU training with CUDA 12.8:
+
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu128
+pip install 911
+```
+
+For the feature-steering web app:
+
+```bash
+pip install "911[serve]"
 ```
 
 ---
 
-## Usage
+## Pre-training
 
-### Pre-training
+### Quickstart
 
 ```bash
-python pre_training/train.py
+# single GPU / CPU
+911-train
+
+# multi-GPU with torchrun
+torchrun --nprocs-per-node 8 -m pre_training.train
 ```
 
-Supports FSDP sharding strategies (`FULL_SHARD`, `SHARD_GRAD_OP`, `HYBRID_SHARD`), activation checkpointing, mixed precision, and W&B logging. Configure via YAML:
+Configuration lives in `config.yaml`. Set the active variant and point `train_data` at a directory of `.npy` shards or a `.txt` file:
 
 ```yaml
 model:
-  emb_dim: 2048
-  n_heads: 16
-  n_layers: 24
-  attention: grouped_query
+  active: qwen3_0_6B   # see variants below
 
-training:
-  batch_size: 512
-  lr: 3e-4
-  fsdp_strategy: FULL_SHARD
+train_data: /data/fineweb
+batch_size: 8
+num_epochs: 2
 ```
 
-### Post-training inference
+### Model variants
+
+| Variant | Arch | Params (approx) |
+|---|---|---|
+| `gpt2_small` / `medium` / `large` / `xl` | GPT-2 | 117M – 1.5B |
+| `nanogpt_small` / `medium` | nanoGPT | 117M – 350M |
+| `ngpt_small` / `medium` | nGPT | 117M – 350M |
+| `llamalike1B` | LLaMA-3 | 1B |
+| `llama8B` / `70B` / `405B` | LLaMA-3 | 8B – 405B |
+| `qwen3_0_6B` | Qwen3 | 0.6B |
+
+### Attention mechanisms
+
+Set `attention` in `config.yaml`:
+
+| Value | Module |
+|---|---|
+| `mha` | Multi-Head Attention (default) |
+| `gqa` | Grouped Query Attention |
+| `mla` | Multi-Head Latent Attention (DeepSeek-style) |
+| `nsa` | Native Sparse Attention |
+| `minmax` | MinMax Attention |
+
+### Distributed training (FSDP)
+
+```yaml
+distributed:
+  fsdp:
+    sharding_strategy: FULL_SHARD   # FULL_SHARD | SHARD_GRAD_OP | HYBRID_SHARD | NO_SHARD
+    mixed_precision: true
+    activation_checkpointing: true
+    cpu_offload: false
+    backward_prefetch: BACKWARD_PRE
+```
+
+### Data preparation
+
+Download and tokenize a HuggingFace dataset into `.npy` shards:
+
+```bash
+python -m pre_training.data.web_crawling.datasets_from_hf \
+  --dataset HuggingFaceFW/fineweb-edu \
+  --dataset_config sample-10BT \
+  --tokenizer gpt2 \
+  --output_dir /data/fineweb \
+  --shard_size 100000000
+```
+
+---
+
+## Post-training
+
+### Top-p generation
 
 ```python
 from post_training.inference.inference_utils import generate_top_p
+from post_training.data.data_tokenizer import load_model_and_tokenizer
 
-output = generate_top_p(model, tokenizer, prompt="Hello!", max_new_tokens=200, top_p=0.9, temperature=0.8)
+model, tokenizer = load_model_and_tokenizer(device="cuda")
+response = generate_top_p(model, tokenizer, prompt, device="cuda", max_new_tokens=512)
 ```
 
-KV-cache rollouts for RLHF-style training:
+### KV-cache rollout (for RLHF)
+
+Returns token ids, per-token log-probs, and the full sequence — everything a reward model or PPO trainer needs:
 
 ```python
 from post_training.inference.rollout import sample_response
 
-tokens, text, log_probs = sample_response(model, tokenizer, prompt_ids, max_new_tokens=512)
+result = sample_response(
+    model, tokenizer, prompt,
+    device="cuda",
+    max_new_tokens=512,
+    temperature=0.9,
+    top_p=0.9,
+)
+# result["text"], result["log_probs"], result["full_token_ids"]
 ```
 
-### Interpretability — SAE training
+---
 
-**Step 1: Collect residual stream activations**
+## Interpretability
+
+### Step 1 — Collect activations
+
+Runs OLMo-2 1B over lmsys-chat-1M, capturing residual stream activations at layer 8. Saves 200K-token chunks to disk.
+
 ```bash
 python -m interpretability.data.lymsys_chat1b
 ```
-Runs OLMo-2 1B inference and saves activations from layer 8 to disk in 200K-token chunks.
 
-**Step 2: Train the SAE**
+### Step 2 — Train a Sparse Autoencoder
+
+TopK SAE (k=32, 32K-feature dictionary) trained over 50M tokens:
+
 ```bash
 python -m interpretability.train
 ```
-Trains a TopK Sparse Autoencoder (k=32, 32K dictionary) on the collected activations for 50M tokens.
 
-### Interpretability — Feature steering
+Or from Python:
+
+```python
+from interpretability.train import train, TrainConfig
+
+train(TrainConfig(
+    d_model=2048,
+    dict_size=32768,
+    k=32,
+    target_tokens=50_000_000,
+    checkpoint_path="sae_layer8.pt",
+))
+```
+
+### Step 3 — Analyze features
+
+Pre-computes top activating examples per feature. Produces `feature_analysis.json` consumed by the web app:
+
+```bash
+python -m interpretability.analyze
+```
+
+### Step 4 — Steer features at generation
 
 ```python
 from interpretability.inference import run_steered_generation
 
-output = run_steered_generation(feature_idx=4821, scale=3.0, prompt="Tell me about your day")
-print(output)
+output = run_steered_generation(
+    feature_idx=4821,
+    scale=3.0,
+    prompt="Tell me about your day",
+)
 ```
 
-Or use `FeatureSteerer` directly for full control:
+For fine-grained control, use `FeatureSteerer` as a context manager:
 
 ```python
 from interpretability.inference import FeatureSteerer
@@ -99,3 +205,11 @@ from interpretability.inference import FeatureSteerer
 with FeatureSteerer(model, sae, layer_idx=8).set_feature(4821, scale=3.0):
     output_ids = model.generate(**inputs, max_new_tokens=200)
 ```
+
+### Web app
+
+```bash
+uvicorn interpretability.app.main:app --reload
+```
+
+Opens a UI at `http://localhost:8000` for browsing SAE features and interactive steering.

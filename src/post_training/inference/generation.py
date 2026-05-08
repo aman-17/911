@@ -1,6 +1,10 @@
+import logging
+
 import torch
 
 from post_training.inference.inference_utils import generate_top_p
+
+log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "Your role as an assistant involves thoroughly exploring questions through "
@@ -17,6 +21,7 @@ __all__ = ["render_prompt", "generate_top_p"]
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     from post_training.data.data_tokenizer import load_model_and_tokenizer
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -27,4 +32,4 @@ if __name__ == "__main__":
 
     torch.manual_seed(0)
     response = generate_top_p(model, tokenizer, prompt, device, max_new_tokens=2048)
-    print(response)
+    log.info("%s", response)

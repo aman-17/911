@@ -5,11 +5,14 @@ Run this once after SAE training — produces feature_analysis.json used by the 
 
 import heapq
 import json
+import logging
 from pathlib import Path
 
 import torch
 from datasets import load_dataset
 from tqdm import tqdm
+
+log = logging.getLogger(__name__)
 
 from interpretability.models.olmo2_1b import load_model
 from interpretability.nn.activations import ActivationCollector
@@ -78,8 +81,9 @@ def run_analysis() -> None:
     }
 
     Path(OUTPUT).write_text(json.dumps(result))
-    print(f"Saved {len(result):,} features → {OUTPUT}")
+    log.info("Saved %d features → %s", len(result), OUTPUT)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     run_analysis()

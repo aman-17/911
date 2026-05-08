@@ -2,10 +2,10 @@ import math
 
 import torch
 import torch.nn as nn
-from nn.norms import LayerNorm
-from nn.transfomer.block.gpt_transformer import GPTTransformerBlock
-from nn.transfomer.block.nanoGPT_transformer import nanoGPTTransformerBlock
-from nn.utils import autocast_precision
+from pre_training.nn.norms import LayerNorm
+from pre_training.nn.transfomer.block.gpt_transformer import GPTTransformerBlock
+from pre_training.nn.transfomer.block.nanoGPT_transformer import nanoGPTTransformerBlock
+from pre_training.nn.utils import autocast_precision
 
 
 class GPTModel(nn.Module):
@@ -20,6 +20,7 @@ class GPTModel(nn.Module):
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], dtype=autocast_precision(cfg["dtype"]))
         self.apply(self._init_weights)
         self.use_cache = cfg.get("use_cache", True)
+        self.ptr_current_pos = 0
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -148,7 +149,7 @@ class nanoGPTModel(nn.Module):
 
     def forward(self, in_idx):
         batch_size, seq_len = in_idx.shape
-        assert seq_len <= self.cfg["emb_dim"], f"Cannot forward sequence of length {seq_len}, block size is only {self.cfg['emb_dim']}"
+        assert seq_len <= self.cfg["max_seq_length"], f"Cannot forward sequence of length {seq_len}, block size is only {self.cfg['max_seq_length']}"
         tok_embeds = self.tok_emb(in_idx)
         pos_embeds = self.pos_emb(torch.arange(0, seq_len, device=in_idx.device))
         x = tok_embeds + pos_embeds

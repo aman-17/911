@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from nn.utils import autocast_precision
+from pre_training.nn.utils import autocast_precision
 
 
 class LayerNorm(nn.Module):

@@ -1,4 +1,5 @@
 import argparse
+import logging
 import multiprocessing as mp
 import os
 
@@ -6,6 +7,8 @@ import numpy as np
 from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoTokenizer
+
+log = logging.getLogger(__name__)
 
 
 def get_dtype_for_vocab_size(vocab_size):
@@ -26,9 +29,9 @@ def process_dataset(dataset, tokenizer, local_dir="processed_data", shard_size=i
     dtype = get_dtype_for_vocab_size(vocab_size)
     max_val = np.iinfo(dtype).max
 
-    print(f"Vocab size: {vocab_size}")
-    print(f"Using dtype: {dtype}")
-    print(f"Max value for dtype: {max_val}")
+    log.info("Vocab size: %d", vocab_size)
+    log.info("Using dtype: %s", dtype)
+    log.info("Max value for dtype: %d", max_val)
 
     if hasattr(tokenizer, "eos_token_id") and tokenizer.eos_token_id is not None:
         eot = tokenizer.eos_token_id
@@ -36,7 +39,7 @@ def process_dataset(dataset, tokenizer, local_dir="processed_data", shard_size=i
         eot = tokenizer.sep_token_id
     else:
         eot = 0
-        print(f"Warning: Could not find end-of-text token, using {eot}")
+        log.warning("Could not find end-of-text token, using %d", eot)
 
     def tokenize(doc):
         tokens = [eot]
@@ -132,26 +135,27 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"Loading dataset: {args.dataset}")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    log.info("Loading dataset: %s", args.dataset)
     if args.dataset_config:
         dataset = load_dataset(args.dataset, name=args.dataset_config, split=args.split)
-        print(f"Dataset config: {args.dataset_config}")
+        log.info("Dataset config: %s", args.dataset_config)
     else:
         dataset = load_dataset(args.dataset, split=args.split)
 
-    print(f"Loading tokenizer: {args.tokenizer}")
+    log.info("Loading tokenizer: %s", args.tokenizer)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
-    print(f"Dataset size: {len(dataset)}")
-    print(f"Output directory: {args.output_dir}")
-    print(f"Shard size: {args.shard_size:,} tokens")
+    log.info("Dataset size: %d", len(dataset))
+    log.info("Output directory: %s", args.output_dir)
+    log.info("Shard size: %s tokens", f"{args.shard_size:,}")
     if args.num_proc:
         # original_cpu_count = os.cpu_count
         os.cpu_count = lambda: args.num_proc * 2
 
     process_dataset(dataset, tokenizer, args.output_dir, args.shard_size)
 
-    print("Processing complete!")
+    log.info("Processing complete")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,13 @@
+import logging
 import os
 
 import numpy as np
 import tiktoken
 import torch.distributed as dist
-from data.data_loader import IterableDatasetTargaV1
+from pre_training.data.data_loader import IterableDatasetTargaV1
 from torch.utils.data import DataLoader
+
+log = logging.getLogger(__name__)
 
 
 def load_npy_files_lazy(data_dir, split="train"):
@@ -16,7 +19,7 @@ def load_npy_files_lazy(data_dir, split="train"):
 
 def load_npy_data_generator(file_paths):
     for file_path in file_paths:
-        print(f"Loading {file_path}")
+        log.debug("Loading %s", file_path)
         data = np.load(file_path)
         if data.dtype == np.uint16:
             data = data.astype(np.int32)
@@ -46,7 +49,6 @@ def create_train_loader(cfg, distributed=True):
 
         if npy_files:
             file_paths = load_npy_files_lazy(data_path, split="train")
-            file_paths = file_paths[: min(10, len(file_paths))]
             if distributed and world_size > 1:
                 files_per_rank = len(file_paths) // world_size
                 start_idx = rank * files_per_rank
@@ -56,7 +58,7 @@ def create_train_loader(cfg, distributed=True):
                 file_paths = file_paths[start_idx:end_idx]
 
                 if rank == 0:
-                    print(f"Distributed mode: Total files: {len(file_paths) * world_size}, " f"Files per rank: {len(file_paths)}")
+                    log.info("Distributed mode: total files=%d, files per rank=%d", len(file_paths) * world_size, len(file_paths))
 
             tokenized_data = list(load_npy_data_generator(file_paths))
 
@@ -115,7 +117,7 @@ def create_train_loader(cfg, distributed=True):
                 data = data[start_idx:end_idx]
 
                 if rank == 0:
-                    print(f"Distributed mode: Total tokens: {data_len}, " f"Tokens per rank: ~{chunk_size}")
+                    log.info("Distributed mode: total tokens=%d, tokens per rank=~%d", data_len, chunk_size)
 
             tokenized_data = [data]
 
@@ -154,15 +156,4 @@ def create_train_loader(cfg, distributed=True):
         persistent_workers=num_workers > 0,
         sampler=None,
     )
-    # if rank == 0:
-    #     print(f"Created DataLoader with batch_size={batch_size}, "
-    #           f"num_workers={num_workers}, distributed={distributed}")
-    #     if hasattr(dataset, '__len__'):
-    #         try:
-    #             dataset_len = len(dataset)
-    #             # print(f"Dataset length: {dataset_len} samples per rank")
-    #             # print(f"Steps per epoch: {dataset_len // batch_size}")
-    #         except:
-    #             raise Exception("IterableDataset len problem")
-
     return train_loader, tokenizer

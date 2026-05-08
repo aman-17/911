@@ -1,6 +1,10 @@
+import logging
+
 import torch
 
 from interpretability.models.olmo2_1b import load_model
+
+log = logging.getLogger(__name__)
 from interpretability.nn.sae import SAEConfig, SAEOutput, SparseAutoencoder
 
 
@@ -71,4 +75,5 @@ def run_steered_generation(
 
 
 if __name__ == "__main__":
-    print(run_steered_generation(feature_idx=0, scale=3.0))
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    log.info("%s", run_steered_generation(feature_idx=0, scale=3.0))

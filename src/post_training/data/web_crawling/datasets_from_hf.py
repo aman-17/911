@@ -1,8 +1,11 @@
 import json
+import logging
 from pathlib import Path
 from pprint import pprint
 
 import requests
+
+log = logging.getLogger(__name__)
 
 
 def load_math_train(local_path: str = "math_train.json", save_copy: bool = True) -> list:
@@ -18,7 +21,7 @@ def load_math_train(local_path: str = "math_train.json", save_copy: bool = True)
         r = requests.get(url, timeout=30)
         r.raise_for_status()
     except requests.RequestException:
-        print("Primary URL failed, using backup.")
+        log.warning("Primary URL failed, trying backup")
         r = requests.get(backup_url, timeout=30)
         r.raise_for_status()
 
@@ -32,6 +35,7 @@ def load_math_train(local_path: str = "math_train.json", save_copy: bool = True)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     data = load_math_train()
-    print(f"Loaded {len(data)} examples")
+    log.info("Loaded %d examples", len(data))
     pprint(data[4])

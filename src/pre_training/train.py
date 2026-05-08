@@ -1,27 +1,34 @@
 import functools
+import logging
 import os
 import time
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Set, Tuple, Type
 
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import wandb
-from config_utils import load_config
-from data.dataset_utils import create_train_loader
-from nn.loss_function import calc_loss_batch, calc_total_loss
-from nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
-from nn.transfomer.model.llama_model import LlamaModel
-from nn.transfomer.model.qwen_model import Qwen3Model
-from nn.utils import generate_text_simple
+
+log = logging.getLogger(__name__)
+from pre_training.config_utils import load_config
+from pre_training.data.dataset_utils import create_train_loader
+from pre_training.nn.loss_function import calc_loss_batch, calc_total_loss
+from pre_training.nn.transfomer.block.gpt_transformer import GPTTransformerBlock
+from pre_training.nn.transfomer.block.llama_transformer import LlamaTransformerBlock
+from pre_training.nn.transfomer.block.nanoGPT_transformer import nanoGPTTransformerBlock
+from pre_training.nn.transfomer.block.qwen3_transformer import Qwen3TransformerBlock
+from pre_training.nn.transfomer.model.gpt_model import GPTModel, nanoGPTModel, nGPTModel
+from pre_training.nn.transfomer.model.llama_model import LlamaModel
+from pre_training.nn.transfomer.model.qwen_model import Qwen3Model
+from pre_training.nn.utils import generate_text_simple
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
     checkpoint_wrapper,
 )
 from torch.distributed.fsdp import BackwardPrefetch, CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+from torch.distributed.fsdp import FullStateDictConfig, MixedPrecision, ShardingStrategy, StateDictType
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 
 def setup(rank: Optional[int] = None, world_size: Optional[int] = None) -> Tuple[int, int, int]:
@@ -29,7 +36,7 @@ def setup(rank: Optional[int] = None, world_size: Optional[int] = None) -> Tuple
         rank = int(os.environ["RANK"])
         world_size = int(os.environ["WORLD_SIZE"])
         local_rank = int(os.environ["LOCAL_RANK"])
-        print(f"Running with torchrun: rank={rank}, world_size={world_size}, local_rank={local_rank}")
+        log.info("Running with torchrun: rank=%d, world_size=%d, local_rank=%d", rank, world_size, local_rank)
 
     else:
         if rank is None or world_size is None:
@@ -37,12 +44,12 @@ def setup(rank: Optional[int] = None, world_size: Optional[int] = None) -> Tuple
         os.environ["MASTER_ADDR"] = "localhost"
         os.environ["MASTER_PORT"] = "29501"
         local_rank = rank
-        print(f"Running with mp.spawn: rank={rank}, world_size={world_size}")
+        log.info("Running with mp.spawn: rank=%d, world_size=%d", rank, world_size)
 
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    elif torch.backends.mps.is_available():
+    else:
         dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
     return rank, world_size, local_rank
@@ -77,14 +84,25 @@ def get_fsdp_config(train_config: Dict) -> Dict:
     }
 
 
+_TRANSFORMER_BLOCK_TYPES: Set[Type[torch.nn.Module]] = {
+    GPTTransformerBlock,
+    LlamaTransformerBlock,
+    Qwen3TransformerBlock,
+    nanoGPTTransformerBlock,
+}
+
+
 def setup_fsdp_model(model: torch.nn.Module, train_config: Dict) -> torch.nn.Module:
     fsdp_config = get_fsdp_config(train_config)
-    auto_wrap_policy = functools.partial(size_based_auto_wrap_policy, min_num_params=100_000_000)
+    auto_wrap_policy = functools.partial(
+        transformer_auto_wrap_policy,
+        transformer_layer_cls=_TRANSFORMER_BLOCK_TYPES,
+    )
     mixed_precision_policy = None
     if fsdp_config["mixed_precision"]:
         mixed_precision_policy = MixedPrecision(
-            param_dtype=torch.float16,
-            reduce_dtype=torch.float16,
+            param_dtype=torch.bfloat16,
+            reduce_dtype=torch.float32,
             buffer_dtype=torch.float32,
         )
     cpu_offload_policy = None
@@ -103,13 +121,31 @@ def setup_fsdp_model(model: torch.nn.Module, train_config: Dict) -> torch.nn.Mod
     )
 
     if fsdp_config["activation_checkpointing"]:
-
-        def check_fn(submodule):
-            return isinstance(submodule, (torch.nn.TransformerEncoderLayer, torch.nn.TransformerDecoderLayer))
-
-        apply_activation_checkpointing(model, checkpoint_wrapper_fn=checkpoint_wrapper, check_fn=check_fn)
+        apply_activation_checkpointing(
+            model,
+            checkpoint_wrapper_fn=checkpoint_wrapper,
+            check_fn=lambda m: isinstance(m, tuple(_TRANSFORMER_BLOCK_TYPES)),
+        )
 
     return model
+
+
+def save_checkpoint(model: torch.nn.Module, step: int, train_config: Dict, rank: int) -> None:
+    ckpt_cfg = train_config.get("checkpoint", {})
+    save_dir = ckpt_cfg.get("save_dir", "checkpoints")
+
+    if isinstance(model, FSDP):
+        cfg = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, cfg):
+            state = model.state_dict()
+    else:
+        state = model.state_dict()
+
+    if rank == 0:
+        os.makedirs(save_dir, exist_ok=True)
+        ckpt_path = os.path.join(save_dir, f"model_step{step}.pt")
+        torch.save({"step": step, "model": state, "config": train_config}, ckpt_path)
+        log.info("Checkpoint saved → %s", ckpt_path)
 
 
 def setup_distributed_model(model: torch.nn.Module, world_size: int, train_config: Dict) -> torch.nn.Module:
@@ -119,19 +155,20 @@ def setup_distributed_model(model: torch.nn.Module, world_size: int, train_confi
 
 
 def generate_and_print_sample(model, tokenizer, start_context, device, rank):
-    if rank == 0:
-        model.eval()
-        base_model = model.module if hasattr(model, "module") else model
-        context_size = base_model.max_seq_len if hasattr(base_model, "max_seq_len") else base_model.cfg.get("max_seq_length", 4096)
-        encoded = tokenizer.encode(start_context)
-        encoded = torch.tensor(encoded, dtype=torch.long, device=device)  # .unsqueeze(0)
+    model.eval()
+    base_model = model.module if hasattr(model, "module") else model
+    context_size = base_model.max_seq_len if hasattr(base_model, "max_seq_len") else base_model.cfg.get("max_seq_length", 4096)
+    encoded = tokenizer.encode(start_context)
+    encoded = torch.tensor(encoded, dtype=torch.long, device=device)
 
-        with torch.no_grad():
-            token_ids = generate_text_simple(model=model, idx=encoded, max_new_tokens=50, context_size=context_size)
-            decoded_text = tokenizer.decode(token_ids)  # .squeeze(0).tolist())
-            cleaned_text = decoded_text.replace("\n", " ")
-            print(f"[Rank {rank}] Generated: {cleaned_text}")
-        model.train()
+    with torch.no_grad():
+        token_ids = generate_text_simple(model=model, idx=encoded, max_new_tokens=50, context_size=context_size)
+
+    if rank == 0:
+        decoded_text = tokenizer.decode(token_ids)
+        log.info("[Rank %d] Generated: %s", rank, decoded_text.replace("\n", " "))
+
+    model.train()
 
 
 def create_model(train_config: Dict, device: torch.device) -> torch.nn.Module:
@@ -167,7 +204,9 @@ def train_911(
     model = create_model(train_config, device)
     model = setup_distributed_model(model, world_size, train_config)
     if rank == 0:
-        wandb.login(key=os.getenv("WANDB_API_KEY"))
+        api_key = os.getenv("WANDB_API_KEY")
+        if api_key:
+            wandb.login(key=api_key)
         wandb.init(project="911-training", config=train_config)
 
     train_loader, tokenizer = create_train_loader(train_config)
@@ -197,7 +236,7 @@ def train_911(
 
             optimizer.zero_grad()
             ce_loss, z_loss = calc_loss_batch(input_batch, target_batch, model, device)
-            total_loss = (ce_loss + z_loss) / world_size
+            total_loss = ce_loss + (z_loss if z_loss is not None else 0.0)
             total_loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -207,9 +246,10 @@ def train_911(
 
             tokens_seen += input_batch.numel()
             ce_epoch_loss += ce_loss.item()
-            z_epoch_loss += z_loss.item()
+            z_epoch_loss += z_loss.item() if z_loss is not None else 0.0
             if rank == 0 and global_step % 10 == 0:
-                print(f"Step {global_step}: CE Loss = {ce_loss.item():.4f}, Z Loss = {z_loss.item():.4f}, LR = {learning_rate_scheduler.get_last_lr()[0]:.6f}")
+                z_str = f"{z_loss.item():.4f}" if z_loss is not None else "n/a"
+                log.info("Step %d: CE Loss = %.4f, Z Loss = %s, LR = %.6f", global_step, ce_loss.item(), z_str, learning_rate_scheduler.get_last_lr()[0])
 
             if global_step % eval_freq == 0:
                 if torch.cuda.is_available():
@@ -254,10 +294,14 @@ def train_911(
                     )
                 generate_and_print_sample(model, tokenizer, start_context, device, rank)
 
+            save_freq = train_config.get("checkpoint", {}).get("save_frequency", 0)
+            if save_freq > 0 and global_step % save_freq == 0:
+                save_checkpoint(model, global_step, train_config, rank)
+
             global_step += 1
 
+    save_checkpoint(model, global_step, train_config, rank)
     if rank == 0:
-        # torch.save(model.module.state_dict(), "model_checkpoint.pt") \
         wandb.finish()
 
     cleanup()

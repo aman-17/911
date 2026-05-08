@@ -127,9 +127,9 @@ class IterableDatasetTargaV1(torch.utils.data.IterableDataset):
                         buffer.append(chunk)
                         if len(buffer) >= self.shuffle_buffer_size:
                             random.shuffle(buffer)
-                            for item in buffer[: self.shuffle_buffer_size // 2]:
+                            for item in buffer:
                                 yield self._create_sample(item)
-                            buffer = buffer[self.shuffle_buffer_size // 2 :]
+                            buffer = []
                     else:
                         yield self._create_sample(chunk)
 

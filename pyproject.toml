@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "911"
 version = "0.1.0"
-description = "Research framework for the full LLM lifecycle — pre-training, post-training, and mechanistic interpretability"
+description = "A mini training infrastructure for LLMs — pre-training, post-training, and mechanistic interpretability in pure PyTorch"
 readme = "README.md"
 authors = [
     {name = "Aman Rangapur", email = "amanrangapur@gmail.com"}
@@ -22,25 +22,33 @@ dependencies = [
     "datasets",
     "wandb",
     "tiktoken",
+    "tqdm",
+    "omegaconf",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+serve = [
+    "fastapi",
+    "uvicorn[standard]",
+]
+workflow = [
     "black",
     "isort",
     "ruff",
-    "omegaconf"
 ]
+
+[project.scripts]
+911-train = "pre_training.train:main"
 
 [project.urls]
 Homepage = "https://github.com/aman-17/911"
 
-[tool.setuptools]
-packages = ["nn", "post_training", "post_training.inference", "post_training.data", "post_training.data.web_crawling"]
-package-dir = {"nn" = "pre_training/nn", "" = "."}
+[tool.setuptools.packages.find]
+where = ["src"]
 
-[project.optional-dependencies]
-workflow = [
-    "black",
-    "isort",
-    "ruff"
-]
+[tool.setuptools.package-data]
+"pre_training" = ["config.yaml"]
 
 [tool.black]
 line-length = 160
@@ -68,8 +76,7 @@ reportPrivateImportUsage = false
 [tool.ruff]
 line-length = 160
 target-version = "py311"
-exclude = ["olmocr/train/molmo", "tests/*"]
-ignore = ["E722"] #ignore bare except
+exclude = ["tests/*"]
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]

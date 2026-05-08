@@ -1,6 +1,10 @@
+import logging
+
 import torch
 from datasets import load_dataset
 from tqdm import tqdm
+
+log = logging.getLogger(__name__)
 
 from interpretability.models.olmo2_1b import load_model
 from interpretability.nn.activations import ActivationCollector
@@ -69,7 +73,7 @@ def collect_activations() -> None:
 
             pbar.close()
 
-    print(f"Done. {tokens_collected:,} tokens saved across {chunk_idx} chunks.")
+    log.info("Done. %d tokens saved across %d chunks.", tokens_collected, chunk_idx)
 
 
 if __name__ == "__main__":

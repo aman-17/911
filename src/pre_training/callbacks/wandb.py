@@ -3,8 +3,8 @@ import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from callbacks.exceptions import EnvironmentError
-from nn.distributed.utils import get_rank
+from pre_training.callbacks.exceptions import EnvironmentError
+from pre_training.nn.distributed.utils import get_rank
 from typing_extensions import Protocol
 
 if TYPE_CHECKING:

@@ -4,7 +4,7 @@ from typing import Callable, Literal, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from nn.distributed.utils import get_local_tensor
+from pre_training.nn.distributed.utils import get_local_tensor
 from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Replicate, Shard
 from torch.distributed.tensor.parallel import (
@@ -157,6 +157,7 @@ class _CELossFnWrapper(nn.Module):
             labels_for_loss,
             ignore_index=self.ignore_index,
             reduction=self.reduction,
+            compute_z_loss=self.z_loss_multiplier is not None,
             z_loss_multiplier=self.z_loss_multiplier or 1e-4,
         )
 
@@ -313,12 +314,13 @@ class CrossEntropyLoss(nn.Module):
         self.loss_fn.tp_enabled = True
 
 
+_loss_fn = CrossEntropyLoss(z_loss_multiplier=1e-4)
+
+
 def calc_loss_batch(input_batch, target_batch, model, device) -> tuple[torch.Tensor, torch.Tensor]:
     input_batch, target_batch = input_batch.to(device), target_batch.to(device)
     logits = model(input_batch)
-    loss_fn = CrossEntropyLoss(z_loss_multiplier=1e-4)
-    ce_loss, z_loss = loss_fn(logits, target_batch)
-
+    ce_loss, z_loss = _loss_fn(logits, target_batch)
     return ce_loss, z_loss
 
 

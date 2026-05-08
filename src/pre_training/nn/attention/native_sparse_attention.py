@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from nn.rope import RotaryPositionalEmbeddings
+from pre_training.nn.rope import RotaryPositionalEmbeddings
 
 
 class NativeSparseAttention(nn.Module):
@@ -184,8 +184,8 @@ class NativeSparseAttention(nn.Module):
         values = self.w_value(x)
 
         if self.use_rope:
-            queries = self.rope(queries)
-            keys = self.rope(keys)
+            queries = self.rope(queries.view(batch_size, seq_len, self.num_heads, self.head_dim)).view(batch_size, seq_len, self.d_out)
+            keys = self.rope(keys.view(batch_size, seq_len, self.n_kv_heads, self.head_dim)).view(batch_size, seq_len, self.n_kv_heads * self.head_dim)
 
         compressed_keys, compressed_values = self._compress_tokens(keys, values, batch_size, seq_len)
         q_comp = queries.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)

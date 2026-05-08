@@ -1,6 +1,10 @@
+import logging
+
 import torch
 
 from post_training.inference.inference_utils import sample_token
+
+log = logging.getLogger(__name__)
 
 
 @torch.no_grad()
@@ -52,6 +56,7 @@ def sample_response(
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     from post_training.data.data_tokenizer import load_model_and_tokenizer
     from post_training.inference.generation import render_prompt
 
@@ -71,4 +76,4 @@ if __name__ == "__main__":
         temperature=0.9,
         top_p=0.9,
     )
-    print(result["text"])
+    log.info("%s", result["text"])

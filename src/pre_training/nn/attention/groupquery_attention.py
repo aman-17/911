@@ -4,10 +4,10 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
-from nn.distributed.parallel.tensor_parallel import SequenceParallel
-from nn.distributed.utils import get_tp_wrappers
-from nn.norms import Qwen3RMSNorm
-from nn.rope import RotaryPositionalEmbeddings
+from pre_training.nn.distributed.parallel.tensor_parallel import SequenceParallel
+from pre_training.nn.distributed.utils import get_tp_wrappers
+from pre_training.nn.norms import Qwen3RMSNorm
+from pre_training.nn.rope import RotaryPositionalEmbeddings
 from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Replicate, Shard
 from torch.distributed.tensor.parallel import parallelize_module
@@ -160,16 +160,16 @@ class GroupedQueryAttention(nn.Module):
         )
 
         plan = {
-            "w_q": colwise_parallel(
+            "w_query": colwise_parallel(
                 output_layouts=None if self.q_norm is None else Shard(1),
                 use_local_output=self.q_norm is None,
             ),
-            "w_k": colwise_parallel(
+            "w_key": colwise_parallel(
                 output_layouts=None if self.k_norm is None else Shard(1),
                 use_local_output=self.k_norm is None,
             ),
-            "w_v": colwise_parallel(),
-            "w_out": rowwise_parallel(output_layouts=output_layout, use_local_output=use_local_output),
+            "w_value": colwise_parallel(),
+            "out_proj": rowwise_parallel(output_layouts=output_layout, use_local_output=use_local_output),
         }
         if self.q_norm is not None:
             plan["q_norm"] = SequenceParallel(use_local_output=True, output_layouts=Shard(-1))

@@ -7,11 +7,14 @@ Usage:
 """
 
 import json
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Thread
 
 import torch
+
+log = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -43,7 +46,7 @@ async def lifespan(app: FastAPI):
     analysis = json.loads(analysis_path.read_text()) if analysis_path.exists() else {}
 
     _state.update(model=model, tokenizer=tokenizer, sae=sae, analysis=analysis)
-    print(f"Loaded SAE · {len(analysis):,} features with pre-computed examples")
+    log.info("Loaded SAE · %d features with pre-computed examples", len(analysis))
     yield
     _state.clear()
 

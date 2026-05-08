@@ -1,8 +1,11 @@
 import glob
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 
 import torch
 from tqdm import tqdm
+
+log = logging.getLogger(__name__)
 
 from interpretability.nn.sae import SAEConfig, SparseAutoencoder
 
@@ -16,12 +19,14 @@ class TrainConfig:
     lr: float = 3e-4
     target_tokens: int = 50_000_000
     checkpoint_path: str = "olmo2_1b_sae_layer8.pt"
-    activation_glob: str = "C:/activations/activations_chunk_*.pt"
+    activation_glob: str = "./activations/activations_chunk_*.pt"
     device: str = "cuda"
     log_every: int = 100
 
 
-def train(cfg: TrainConfig = field(default_factory=TrainConfig)) -> None:
+def train(cfg: TrainConfig = None) -> None:
+    if cfg is None:
+        cfg = TrainConfig()
     sae = SparseAutoencoder(SAEConfig(d_model=cfg.d_model, dict_size=cfg.dict_size, k=cfg.k)).to(cfg.device)
     optimizer = torch.optim.Adam(sae.parameters(), lr=cfg.lr)
 
@@ -67,8 +72,9 @@ def train(cfg: TrainConfig = field(default_factory=TrainConfig)) -> None:
 
     pbar.close()
     torch.save(sae.state_dict(), cfg.checkpoint_path)
-    print(f"Saved checkpoint → {cfg.checkpoint_path}")
+    log.info("Saved checkpoint → %s", cfg.checkpoint_path)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     train(TrainConfig())

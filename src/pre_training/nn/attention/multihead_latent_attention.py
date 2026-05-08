@@ -3,9 +3,9 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from nn.attention.utils import apply_rotary_emb
-from nn.norms import RMSNorm
-from nn.rope import RotaryPositionalEmbeddings
+from pre_training.nn.attention.utils import apply_rotary_emb
+from pre_training.nn.norms import RMSNorm
+from pre_training.nn.rope import RotaryPositionalEmbeddings
 
 
 class MultiHeadLatentAttention(nn.Module):
@@ -16,7 +16,6 @@ class MultiHeadLatentAttention(nn.Module):
         max_seq_len: int,
         original_seq_len: int,
         num_heads: int,
-        batch_size: int,
         dtype: torch.dtype,
         n_kv_heads: Optional[int] = None,
         qkv_bias: bool = False,
@@ -52,7 +51,6 @@ class MultiHeadLatentAttention(nn.Module):
         self.mscale = mscale
         self.rope_factor = rope_factor
         self.max_seq_len = max_seq_len
-        self.batch_size = batch_size
         self.attn_impl = attn_impl
 
         if self.q_lora_rank == 0:
@@ -81,38 +79,10 @@ class MultiHeadLatentAttention(nn.Module):
             mscale = 0.1 * self.mscale * math.log(self.rope_factor) + 1.0
             self.softmax_scale = self.softmax_scale * mscale * mscale
 
-        if attn_impl == "naive":
-            self.register_buffer(
-                "k_cache",
-                torch.zeros(
-                    self.batch_size,
-                    self.max_seq_len,
-                    self.n_local_heads,
-                    self.qk_head_dim,
-                ),
-                persistent=False,
-            )
-            self.register_buffer(
-                "v_cache",
-                torch.zeros(
-                    self.batch_size,
-                    self.max_seq_len,
-                    self.n_local_heads,
-                    self.v_head_dim,
-                ),
-                persistent=False,
-            )
-        else:
-            self.register_buffer(
-                "kv_cache",
-                torch.zeros(self.batch_size, self.max_seq_len, self.kv_lora_rank),
-                persistent=False,
-            )
-            self.register_buffer(
-                "pe_cache",
-                torch.zeros(self.batch_size, self.max_seq_len, self.qk_rope_head_dim),
-                persistent=False,
-            )
+        self.register_buffer("k_cache", None, persistent=False)
+        self.register_buffer("v_cache", None, persistent=False)
+        self.register_buffer("kv_cache", None, persistent=False)
+        self.register_buffer("pe_cache", None, persistent=False)
 
         self.use_rope = use_rope
 
@@ -157,6 +127,10 @@ class MultiHeadLatentAttention(nn.Module):
             k_nope, v = torch.split(kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1)
             k = torch.cat([k_nope, k_pe.expand(-1, -1, self.n_local_heads, -1)], dim=-1)
 
+            if self.k_cache is None or self.k_cache.shape[0] != batch_size:
+                self.k_cache = torch.zeros(batch_size, self.max_seq_len, self.n_local_heads, self.qk_head_dim, device=x.device, dtype=k.dtype)
+                self.v_cache = torch.zeros(batch_size, self.max_seq_len, self.n_local_heads, self.v_head_dim, device=x.device, dtype=v.dtype)
+
             self.k_cache[:batch_size, start_pos:end_pos] = k
             self.v_cache[:batch_size, start_pos:end_pos] = v
 
@@ -176,6 +150,10 @@ class MultiHeadLatentAttention(nn.Module):
                 proj = torch.matmul(q_nope_reshaped[:, h], wkv_b_q[h])
                 q_nope_proj.append(proj)
             q_nope = torch.stack(q_nope_proj, dim=1).reshape(batch_size, seq_len, self.n_local_heads, self.kv_lora_rank)
+
+            if self.kv_cache is None or self.kv_cache.shape[0] != batch_size:
+                self.kv_cache = torch.zeros(batch_size, self.max_seq_len, self.kv_lora_rank, device=x.device, dtype=kv.dtype)
+                self.pe_cache = torch.zeros(batch_size, self.max_seq_len, self.qk_rope_head_dim, device=x.device, dtype=k_pe.dtype)
 
             self.kv_cache[:batch_size, start_pos:end_pos] = self.kv_norm(kv)
             self.pe_cache[:batch_size, start_pos:end_pos] = k_pe.squeeze(2)
