@@ -4,7 +4,6 @@ from typing import Callable, Literal, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pre_training.nn.distributed.utils import get_local_tensor
 from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Replicate, Shard
 from torch.distributed.tensor.parallel import (
@@ -12,6 +11,8 @@ from torch.distributed.tensor.parallel import (
     PrepareModuleOutput,
     parallelize_module,
 )
+
+from pre_training.nn.distributed.utils import get_local_tensor
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

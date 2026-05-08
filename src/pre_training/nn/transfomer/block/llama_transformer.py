@@ -1,9 +1,12 @@
 from typing import Optional
 
 import torch.nn as nn
+
 from pre_training.nn.attention.factory import build_attention
 from pre_training.nn.attention.minmax_attention import MinMaxAttention
-from pre_training.nn.attention.multihead_latent_attention import MultiHeadLatentAttention
+from pre_training.nn.attention.multihead_latent_attention import (
+    MultiHeadLatentAttention,
+)
 from pre_training.nn.ffn import FeedForward
 from pre_training.nn.norms import RMSNorm
 from pre_training.nn.utils import autocast_precision

@@ -1,13 +1,14 @@
 import torch.nn as nn
+from torch.distributed import DeviceMesh
+from torch.distributed.tensor import Placement, Shard
+from torch.distributed.tensor.parallel import PrepareModuleInput, parallelize_module
+
 from pre_training.nn.attention.factory import build_attention
 from pre_training.nn.attention.groupquery_attention import GroupedQueryAttention
 from pre_training.nn.attention.minmax_attention import MinMaxAttention
 from pre_training.nn.ffn import Qwen3FeedForward
 from pre_training.nn.norms import Qwen3RMSNorm
 from pre_training.nn.utils import autocast_precision
-from torch.distributed import DeviceMesh
-from torch.distributed.tensor import Placement, Shard
-from torch.distributed.tensor.parallel import PrepareModuleInput, parallelize_module
 
 
 class Qwen3TransformerBlock(nn.Module):

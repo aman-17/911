@@ -4,12 +4,13 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pre_training.nn.activations import GELU
-from pre_training.nn.distributed.utils import get_tp_wrappers
-from pre_training.nn.utils import autocast_precision
 from torch.distributed import DeviceMesh
 from torch.distributed.tensor import Placement, Replicate  # , Shard
 from torch.distributed.tensor.parallel import parallelize_module
+
+from pre_training.nn.activations import GELU
+from pre_training.nn.distributed.utils import get_tp_wrappers
+from pre_training.nn.utils import autocast_precision
 
 
 class FeedForward(nn.Module):

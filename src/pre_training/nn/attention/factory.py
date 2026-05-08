@@ -1,8 +1,11 @@
 import torch.nn as nn
+
 from pre_training.nn.attention.groupquery_attention import GroupedQueryAttention
 from pre_training.nn.attention.minmax_attention import MinMaxAttention
 from pre_training.nn.attention.multihead_attention import MultiHeadAttention
-from pre_training.nn.attention.multihead_latent_attention import MultiHeadLatentAttention
+from pre_training.nn.attention.multihead_latent_attention import (
+    MultiHeadLatentAttention,
+)
 from pre_training.nn.attention.native_sparse_attention import NativeSparseAttention
 from pre_training.nn.utils import autocast_precision
 

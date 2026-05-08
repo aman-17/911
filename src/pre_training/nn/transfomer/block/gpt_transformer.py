@@ -1,4 +1,5 @@
 import torch.nn as nn
+
 from pre_training.nn.attention.factory import build_attention
 from pre_training.nn.attention.minmax_attention import MinMaxAttention
 from pre_training.nn.ffn import FeedForward
