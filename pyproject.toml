@@ -18,7 +18,10 @@ dependencies = [
     "cached-path>=1.7.2",
     "requests",
     "safetensors",
-    "transformers",
+    # Qwen3-VL modeling code uses transformers utilities only present on git/main
+    # (vision_utils, output_capturing, use_kernel_func_from_hub, initialization,
+    # maybe_autocast, etc.). Pin to git until the next release.
+    "transformers @ git+https://github.com/huggingface/transformers.git",
     "datasets",
     "wandb",
     "tiktoken",
@@ -37,9 +40,18 @@ workflow = [
     "isort",
     "ruff",
 ]
+vlms = [
+    "Pillow",
+    "torchvision",
+    "peft",
+    # video backends (optional, pick one at runtime via FORCE_QWENVL_VIDEO_READER)
+    "decord ; platform_system != 'Darwin'",
+    "torchcodec ; platform_system != 'Darwin'",
+]
 
 [project.scripts]
 911-train = "pre_training.train:main"
+911-train-vlm = "vlms.train.train_qwen:train"
 
 [project.urls]
 Homepage = "https://github.com/aman-17/911"

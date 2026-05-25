@@ -14,6 +14,7 @@ pip install 911
 |---|---|
 | `pre_training` | Train GPT, LLaMA, Qwen3, nGPT from scratch with FSDP multi-GPU |
 | `post_training` | KV-cache generation, nucleus sampling, rollout for RLHF pipelines |
+| `vlms` | SFT pipeline for Qwen3-VL / Qwen3-VL-Moe (image + video + text) with LoRA, packing, and flash-attention |
 | `interpretability` | Collect activations, train TopK SAEs, steer features at inference |
 
 ---
@@ -37,6 +38,12 @@ For the feature-steering web app:
 
 ```bash
 pip install "911[serve]"
+```
+
+For VLM fine-tuning (image / video):
+
+```bash
+pip install "911[vlms]"
 ```
 
 ---
@@ -142,6 +149,59 @@ result = sample_response(
 )
 # result["text"], result["log_probs"], result["full_token_ids"]
 ```
+
+---
+
+## VLM fine-tuning (Qwen3-VL)
+
+Supervised fine-tuning for **Qwen3-VL** and **Qwen3-VL-Moe** on multi-modal conversations (image + video + text). Adapted from the upstream Qwen-VL trainer and rewired against a local copy of the modeling code, so the model definition lives in the repo rather than `transformers.models.qwen3_vl`.
+
+### Quickstart
+
+```bash
+torchrun --nproc-per-node 8 -m vlms.train.train_qwen \
+  --model_name_or_path Qwen/Qwen3-VL-4B-Instruct \
+  --dataset_use cambrian_737k \
+  --output_dir ./out/qwen3vl-sft \
+  --bf16 True \
+  --per_device_train_batch_size 1 \
+  --gradient_accumulation_steps 8 \
+  --learning_rate 2e-5 \
+  --num_train_epochs 1 \
+  --model_max_length 4096 \
+  --tune_mm_llm True \
+  --tune_mm_mlp True \
+  --tune_mm_vision False
+```
+
+Or via the installed script:
+
+```bash
+911-train-vlm --model_name_or_path Qwen/Qwen3-VL-4B-Instruct ...
+```
+
+### What you can control
+
+| Flag | Effect |
+|---|---|
+| `--tune_mm_llm` | unfreeze the language backbone |
+| `--tune_mm_mlp` | unfreeze the vision-to-LLM merger MLP |
+| `--tune_mm_vision` | unfreeze the vision encoder |
+| `--lora_enable` | LoRA on attention proj layers (r/alpha/dropout configurable) |
+| `--data_packing` | pack multiple samples into one sequence (uses flash-attn varlen) |
+| `--data_flatten` | flatten samples without padding |
+| `--max_pixels` / `--min_pixels` | image token budget (defaults: 16 → 576 vision tokens) |
+| `--video_max_frames` / `--video_fps` | video sampling controls |
+
+### Datasets
+
+Datasets are registered in [`vlms/data/__init__.py`](src/vlms/data/__init__.py). Each entry points at a `.json` / `.jsonl` annotation file in ShareGPT format and a data root for resolving relative `image:` / `video:` paths. Add your dataset by appending to `data_dict` and pass its key via `--dataset_use my_dataset` (comma-separated for multiple, `name%50` for 50% sampling).
+
+### Notes
+
+- Requires `transformers` from git/main — pinned automatically by `pip install 911[vlms]`. Qwen3-VL modeling uses utilities (`vision_utils`, `output_capturing`, kernel-hub integrations) that aren't in any released `transformers` yet.
+- `flash-attn` is a hard runtime dependency for the packed/flattened code path; install it separately on the GPU box.
+- The Moe variant (`Qwen3-VL-Moe`) still imports from `transformers.models.qwen3_vl_moe` — only the dense variant has been pulled local.
 
 ---
 
