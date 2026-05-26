@@ -4,8 +4,8 @@ import logging
 import re
 import time
 import itertools
-from dataclasses import dataclass, field
-from typing import Dict, Optional, Sequence, List, Tuple, Any
+from dataclasses import dataclass
+from typing import Dict, Sequence, List, Any
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from torch.utils.data import Dataset
 import transformers
 
 from . import data_list
-from .rope2d import get_rope_index_3
+from .rope2d import get_rope_index_25, get_rope_index_2, get_rope_index_3
 
 IGNORE_INDEX = -100
 IMAGE_TOKEN_INDEX = 151655
@@ -56,18 +56,12 @@ def update_processor_pixels(processor, data_args):
     if hasattr(ip, "min_pixels") and hasattr(ip, "max_pixels"):
         ip.min_pixels = data_args.min_pixels
         ip.max_pixels = data_args.max_pixels
-        rank0_print(f"✅ Updated image_processor min_pixels to {data_args.min_pixels}")
-        rank0_print(f"✅ Updated image_processor max_pixels to {data_args.max_pixels}")
+        rank0_print(f"Updated image_processor min_pixels to {data_args.min_pixels}")
+        rank0_print(f"Updated image_processor max_pixels to {data_args.max_pixels}")
 
     if hasattr(ip, "size") and isinstance(ip.size, dict):
         ip.size["shortest_edge"] = data_args.min_pixels
         ip.size["longest_edge"] = data_args.max_pixels
-        rank0_print(
-            f"✅ Updated image_processor size['shortest_edge'] to {data_args.min_pixels}"
-        )
-        rank0_print(
-            f"✅ Updated image_processor size['longest_edge'] to {data_args.max_pixels}"
-        )
 
     rank0_print("=== AFTER IMAGE PROCESSOR PARAMETERS ===")
     rank0_print(f"Image min_pixels: {getattr(ip, 'min_pixels', 'N/A')}")
@@ -78,67 +72,26 @@ def update_processor_pixels(processor, data_args):
     # --- Video Processor ---
     if hasattr(processor, "video_processor") and processor.video_processor is not None:
         vp = processor.video_processor
-        rank0_print("\n=== BEFORE VIDEO PROCESSOR PARAMETERS ===")
-        rank0_print(f"Video min_pixels: {getattr(vp, 'min_pixels', 'N/A')}")
-        rank0_print(f"Video max_pixels: {getattr(vp, 'max_pixels', 'N/A')}")
-        rank0_print(f"Video min_frames: {getattr(vp, 'min_frames', 'N/A')}")
-        rank0_print(f"Video max_frames: {getattr(vp, 'max_frames', 'N/A')}")
-        rank0_print(f"Video fps: {getattr(vp, 'fps', 'N/A')}")
-        rank0_print(
-            f"Video size (shortest_edge): {vp.size.get('shortest_edge', 'N/A')}"
-        )
-        rank0_print(f"Video size (longest_edge):  {vp.size.get('longest_edge', 'N/A')}")
 
         if hasattr(vp, "min_pixels") and hasattr(vp, "max_pixels"):
             vp.min_pixels = data_args.video_min_pixels
             vp.max_pixels = data_args.video_max_pixels
-            rank0_print(
-                f"✅ Updated video_processor min_pixels to {data_args.video_min_pixels}"
-            )
-            rank0_print(
-                f"✅ Updated video_processor max_pixels to {data_args.video_max_pixels}"
-            )
 
         if hasattr(vp, "min_frames") and hasattr(vp, "max_frames"):
             vp.min_frames = data_args.video_min_frames
             vp.max_frames = data_args.video_max_frames
-            rank0_print(
-                f"✅ Updated video_processor min_frames to {data_args.video_min_frames}"
-            )
-            rank0_print(
-                f"✅ Updated video_processor max_frames to {data_args.video_max_frames}"
-            )
 
         if hasattr(vp, "fps"):
             vp.fps = data_args.video_fps
-            rank0_print(f"✅ Updated video_processor fps to {data_args.video_fps}")
 
         if hasattr(vp, "size") and isinstance(vp.size, dict):
             vp.size["shortest_edge"] = data_args.video_min_pixels
             vp.size["longest_edge"] = data_args.video_max_pixels
-            rank0_print(
-                f"✅ Updated Video size (shortest_edge): {vp.size.get('shortest_edge', 'N/A')}"
-            )
-            rank0_print(
-                f"✅ Updated Video size (longest_edge):  {vp.size.get('longest_edge', 'N/A')}"
-            )
-
-        rank0_print("=== AFTER VIDEO PROCESSOR PARAMETERS ===")
-        rank0_print(f"Video min_pixels: {getattr(vp, 'min_pixels', 'N/A')}")
-        rank0_print(f"Video max_pixels: {getattr(vp, 'max_pixels', 'N/A')}")
-        rank0_print(f"Video min_frames: {getattr(vp, 'min_frames', 'N/A')}")
-        rank0_print(f"Video max_frames: {getattr(vp, 'max_frames', 'N/A')}")
-        rank0_print(f"Video fps: {getattr(vp, 'fps', 'N/A')}")
-        rank0_print(
-            f"Video size (shortest_edge): {vp.size.get('shortest_edge', 'N/A')}"
-        )
-        rank0_print(f"Video size (longest_edge):  {vp.size.get('longest_edge', 'N/A')}")
 
     return processor
 
 
 def _build_messages(item: Dict[str, Any], base_path: Path) -> List[Dict[str, Any]]:
-    # Extract and normalize images and videos
     images = item.get("image") or []
     if isinstance(images, str):
         images = [images]
@@ -147,7 +100,6 @@ def _build_messages(item: Dict[str, Any], base_path: Path) -> List[Dict[str, Any
     if isinstance(videos, str):
         videos = [videos]
 
-    # Build media pools with absolute paths
     image_pool = [
         {"type": "image", "image": _make_abs_paths(base_path, img)} for img in images
     ]
@@ -162,7 +114,6 @@ def _build_messages(item: Dict[str, Any], base_path: Path) -> List[Dict[str, Any
 
         if role == "user":
             content = []
-            # Split text by <image> or <video> placeholders while keeping delimiters
             text_parts = re.split(r"(<image>|<video>)", text)
 
             for seg in text_parts:
@@ -183,10 +134,8 @@ def _build_messages(item: Dict[str, Any], base_path: Path) -> List[Dict[str, Any
 
             messages.append({"role": role, "content": content})
         else:
-            # Assistant messages contain only text
             messages.append({"role": role, "content": [{"type": "text", "text": text}]})
 
-    # Check for unused media files
     if image_pool:
         raise ValueError(
             f"{len(image_pool)} image(s) remain unused (not consumed by placeholders)"
@@ -197,6 +146,14 @@ def _build_messages(item: Dict[str, Any], base_path: Path) -> List[Dict[str, Any
         )
 
     return messages
+
+
+def _get_label_tokens(processor):
+    """Derive assistant-start pattern and im_end token ID from the tokenizer."""
+    tok = processor.tokenizer if hasattr(processor, "tokenizer") else processor
+    im_end_id = tok.convert_tokens_to_ids("<|im_end|>")
+    role_ids = tok.encode("<|im_start|>assistant", add_special_tokens=False)
+    return role_ids, im_end_id
 
 
 def preprocess_qwen_visual(
@@ -220,18 +177,22 @@ def preprocess_qwen_visual(
 
     labels = torch.full_like(input_ids, IGNORE_INDEX)
 
+    role_ids, im_end_id = _get_label_tokens(processor)
+    n_role = len(role_ids)
+
     input_ids_flat = input_ids[0].tolist()
     L = len(input_ids_flat)
     pos = 0
     while pos < L:
-        if input_ids_flat[pos] == 77091:
-            ans_start = pos + 2
+        if input_ids_flat[pos : pos + n_role] == role_ids:
+            # skip role tokens + '\n' (1 token) to reach actual response
+            ans_start = pos + n_role + 1
             ans_end = ans_start
-            while ans_end < L and input_ids_flat[ans_end] != 151645:
+            while ans_end < L and input_ids_flat[ans_end] != im_end_id:
                 ans_end += 1
             if ans_end < L:
-                labels[0, ans_start : ans_end + 2] = input_ids[
-                    0, ans_start : ans_end + 2
+                labels[0, ans_start : ans_end + 1] = input_ids[
+                    0, ans_start : ans_end + 1
                 ]
                 pos = ans_end
         pos += 1
@@ -259,6 +220,10 @@ class LazySupervisedDataset(Dataset):
         self.model_type = data_args.model_type
         if data_args.model_type == "qwen3vl":
             self.get_rope_index = get_rope_index_3
+        elif data_args.model_type == "qwen2.5vl":
+            self.get_rope_index = get_rope_index_25
+        elif data_args.model_type == "qwen2vl":
+            self.get_rope_index = get_rope_index_2
         else:
             raise ValueError(f"model_type: {data_args.model_type} not supported")
 
@@ -287,7 +252,6 @@ class LazySupervisedDataset(Dataset):
             list_data_dict += annotations
 
         rank0_print(f"Total training samples: {len(list_data_dict)}")
-
 
         rank0_print("Formatting inputs...Skip in lazy mode")
         processor = update_processor_pixels(processor, data_args)
@@ -339,54 +303,33 @@ class LazySupervisedDataset(Dataset):
             return np.array([1] * len(self.list_data_dict))
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        num_base_retries = 3
-        num_final_retries = 30
-
-        # try the current sample first
-        for attempt_idx in range(num_base_retries):
+        for attempt_idx in range(3):
             try:
                 sources = self.list_data_dict[i]
                 if isinstance(sources, dict):
                     sources = [sources]
-                sample = self.item_fn(sources)
-                return sample
+                return self.item_fn(sources)
             except Exception as e:
-                # sleep 1s in case it is a cloud disk issue
                 print(f"[Try #{attempt_idx}] Failed to fetch sample {i}. Exception:", e)
                 time.sleep(1)
 
-        # try other samples, in case it is file corruption issue
-        for attempt_idx in range(num_base_retries):
+        for attempt_idx in range(3):
             try:
                 next_index = min(i + 1, len(self.list_data_dict) - 1)
                 sources = self.list_data_dict[next_index]
                 if isinstance(sources, dict):
                     sources = [sources]
-
-                sample = self.item_fn(sources)
-                return sample
+                return self.item_fn(sources)
             except Exception as e:
-                # no need to sleep
-                print(
-                    f"[Try other #{attempt_idx}] Failed to fetch sample {next_index}. Exception:",
-                    e,
-                )
-                pass
+                print(f"[Try other #{attempt_idx}] Failed to fetch sample {next_index}. Exception:", e)
 
-        try:
-            sources = self.list_data_dict[i]
-            if isinstance(sources, dict):
-                sources = [sources]
-            sample = self.item_fn(sources)
-            return sample
-        except Exception as e:
-            raise e
+        sources = self.list_data_dict[i]
+        if isinstance(sources, dict):
+            sources = [sources]
+        return self.item_fn(sources)
 
     def _get_item(self, sources) -> Dict[str, torch.Tensor]:
-        data_dict = preprocess_qwen_visual(
-            sources,
-            self.processor,
-        )
+        data_dict = preprocess_qwen_visual(sources, self.processor)
 
         seq_len = data_dict["input_ids"][0].size(0)
 
@@ -413,45 +356,25 @@ class LazySupervisedDataset(Dataset):
             self.merge_size,
             data_dict["input_ids"],
             image_grid_thw=torch.cat(grid_thw, dim=0) if grid_thw else None,
-            video_grid_thw=(
-                torch.cat(video_grid_thw, dim=0) if video_grid_thw else None
-            ),
+            video_grid_thw=torch.cat(video_grid_thw, dim=0) if video_grid_thw else None,
             second_per_grid_ts=second_per_grid_ts if second_per_grid_ts else None,
         )
 
         data_dict["position_ids"] = position_ids
         data_dict["attention_mask"] = [seq_len]
 
-        text = self.processor.tokenizer.decode(
-            data_dict["input_ids"][0], skip_special_tokens=False
-        )
-
-        labels = data_dict["labels"][0]
-        labels = [
-            tid if tid != -100 else self.processor.tokenizer.pad_token_id
-            for tid in labels
-        ]
-        label = self.processor.tokenizer.decode(labels, skip_special_tokens=False)
-
         return data_dict
 
     def _get_packed_item(self, sources) -> Dict[str, torch.Tensor]:
-
         if isinstance(sources, dict):
-            if isinstance(source, dict):
-                sources = [sources]
-            assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
+            sources = [sources]
             return self._get_item(sources)
 
         if isinstance(sources, list):
             data_list = []
-            new_data_dict = {}
             for source in sources:
                 if isinstance(source, dict):
                     source = [source]
-                assert (
-                    len(source) == 1
-                ), f"Don't know why it is wrapped to a list.\n {source}"  # FIXME
                 data_list.append(self._get_item(source))
 
             input_ids = torch.cat([d["input_ids"] for d in data_list], dim=1)
@@ -468,63 +391,31 @@ class LazySupervisedDataset(Dataset):
             }
 
             if any("pixel_values" in d for d in data_list):
-                new_data_dict.update(
-                    {
-                        "pixel_values": torch.cat(
-                            [
-                                d["pixel_values"]
-                                for d in data_list
-                                if "pixel_values" in d
-                            ],
-                            dim=0,
-                        ),
-                        "image_grid_thw": torch.cat(
-                            [
-                                d["image_grid_thw"]
-                                for d in data_list
-                                if "image_grid_thw" in d
-                            ],
-                            dim=0,
-                        ),
-                    }
+                new_data_dict["pixel_values"] = torch.cat(
+                    [d["pixel_values"] for d in data_list if "pixel_values" in d], dim=0
+                )
+                new_data_dict["image_grid_thw"] = torch.cat(
+                    [d["image_grid_thw"] for d in data_list if "image_grid_thw" in d], dim=0
                 )
 
             if any("pixel_values_videos" in d for d in data_list):
-                new_data_dict.update(
-                    {
-                        "pixel_values_videos": torch.cat(
-                            [
-                                d["pixel_values_videos"]
-                                for d in data_list
-                                if "pixel_values_videos" in d
-                            ],
-                            dim=0,
-                        ),
-                        "video_grid_thw": torch.cat(
-                            [
-                                d["video_grid_thw"]
-                                for d in data_list
-                                if "video_grid_thw" in d
-                            ],
-                            dim=0,
-                        ),
-                    }
+                new_data_dict["pixel_values_videos"] = torch.cat(
+                    [d["pixel_values_videos"] for d in data_list if "pixel_values_videos" in d], dim=0
                 )
+                new_data_dict["video_grid_thw"] = torch.cat(
+                    [d["video_grid_thw"] for d in data_list if "video_grid_thw" in d], dim=0
+                )
+
             return new_data_dict
 
 
 def pad_and_cat(tensor_list):
     max_length = max(tensor.shape[2] for tensor in tensor_list)
-
-    padded_tensors = []
+    padded = []
     for tensor in tensor_list:
         pad_length = max_length - tensor.shape[2]
-        padded_tensor = torch.nn.functional.pad(tensor, (0, pad_length), "constant", 1)
-        padded_tensors.append(padded_tensor)
-
-    stacked_tensor = torch.cat(padded_tensors, dim=1)
-
-    return stacked_tensor
+        padded.append(torch.nn.functional.pad(tensor, (0, pad_length), "constant", 1))
+    return torch.cat(padded, dim=1)
 
 
 @dataclass
@@ -550,50 +441,24 @@ class DataCollatorForSupervisedDataset(object):
         input_ids = input_ids[:, : self.tokenizer.model_max_length]
         labels = labels[:, : self.tokenizer.model_max_length]
         position_ids = position_ids[:, :, : self.tokenizer.model_max_length]
+
+        images = [i["pixel_values"] for i in instances if "pixel_values" in i]
+        videos = [i["pixel_values_videos"] for i in instances if "pixel_values_videos" in i]
+
         batch = dict(
             input_ids=input_ids,
             labels=labels,
             attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
+            pixel_values=torch.cat(images, dim=0) if images else None,
+            image_grid_thw=torch.cat(
+                [i["image_grid_thw"] for i in instances if "image_grid_thw" in i], dim=0
+            ) if images else None,
+            pixel_values_videos=torch.cat(videos, dim=0) if videos else None,
+            video_grid_thw=torch.cat(
+                [i["video_grid_thw"] for i in instances if "video_grid_thw" in i], dim=0
+            ) if videos else None,
+            position_ids=position_ids,
         )
-        images = list(
-            instance["pixel_values"]
-            for instance in instances
-            if "pixel_values" in instance
-        )
-        videos = list(
-            instance["pixel_values_videos"]
-            for instance in instances
-            if "pixel_values_videos" in instance
-        )
-        if len(images) != 0:
-            concat_images = torch.cat([image for image in images], dim=0)
-            grid_thw = [
-                instance["image_grid_thw"]
-                for instance in instances
-                if "image_grid_thw" in instance
-            ]
-            grid_thw = torch.cat(grid_thw, dim=0)
-        else:
-            concat_images = None
-            grid_thw = None
-
-        if len(videos) != 0:
-            concat_videos = torch.cat([video for video in videos], dim=0)
-            video_grid_thw = [
-                instance["video_grid_thw"]
-                for instance in instances
-                if "video_grid_thw" in instance
-            ]
-            video_grid_thw = torch.cat(video_grid_thw, dim=0)
-        else:
-            concat_videos = None
-            video_grid_thw = None
-
-        batch["pixel_values"] = concat_images
-        batch["image_grid_thw"] = grid_thw
-        batch["pixel_values_videos"] = concat_videos
-        batch["video_grid_thw"] = video_grid_thw
-        batch["position_ids"] = position_ids
         return batch
 
 
@@ -610,11 +475,7 @@ class FlattenedDataCollatorForSupervisedDataset(DataCollatorForSupervisedDataset
         )
         attention_mask = list(
             itertools.chain(
-                *(
-                    instance["attention_mask"]
-                    for instance in instances
-                    if "attention_mask" in instance
-                )
+                *(instance["attention_mask"] for instance in instances if "attention_mask" in instance)
             )
         )
         seq_lens = torch.tensor([0] + attention_mask, dtype=torch.int32)
@@ -623,51 +484,23 @@ class FlattenedDataCollatorForSupervisedDataset(DataCollatorForSupervisedDataset
         labels = torch.cat(labels, dim=1)
         position_ids = torch.cat(position_ids, dim=2)
 
+        images = [i["pixel_values"] for i in instances if "pixel_values" in i]
+        videos = [i["pixel_values_videos"] for i in instances if "pixel_values_videos" in i]
+
         batch = dict(
             input_ids=input_ids,
             labels=labels,
             attention_mask=cumsum_seq_lens,
             position_ids=position_ids,
+            pixel_values=torch.cat(images, dim=0) if images else None,
+            image_grid_thw=torch.cat(
+                [i["image_grid_thw"] for i in instances if "image_grid_thw" in i], dim=0
+            ) if images else None,
+            pixel_values_videos=torch.cat(videos, dim=0) if videos else None,
+            video_grid_thw=torch.cat(
+                [i["video_grid_thw"] for i in instances if "video_grid_thw" in i], dim=0
+            ) if videos else None,
         )
-        images = list(
-            instance["pixel_values"]
-            for instance in instances
-            if "pixel_values" in instance
-        )
-        videos = list(
-            instance["pixel_values_videos"]
-            for instance in instances
-            if "pixel_values_videos" in instance
-        )
-        if len(images) != 0:
-            concat_images = torch.cat([image for image in images], dim=0)
-            grid_thw = [
-                instance["image_grid_thw"]
-                for instance in instances
-                if "image_grid_thw" in instance
-            ]
-            grid_thw = torch.cat(grid_thw, dim=0)
-        else:
-            concat_images = None
-            grid_thw = None
-
-        if len(videos) != 0:
-            concat_videos = torch.cat([video for video in videos], dim=0)
-            video_grid_thw = [
-                instance["video_grid_thw"]
-                for instance in instances
-                if "video_grid_thw" in instance
-            ]
-            video_grid_thw = torch.cat(video_grid_thw, dim=0)
-        else:
-            concat_videos = None
-            video_grid_thw = None
-
-        batch["pixel_values"] = concat_images
-        batch["image_grid_thw"] = grid_thw
-        batch["pixel_values_videos"] = concat_videos
-        batch["video_grid_thw"] = video_grid_thw
-
         return batch
 
 
@@ -676,13 +509,9 @@ def make_supervised_data_module(processor, data_args) -> Dict:
     train_dataset = LazySupervisedDataset(processor, data_args=data_args)
     if data_args.data_flatten or data_args.data_packing:
         data_collator = FlattenedDataCollatorForSupervisedDataset(processor.tokenizer)
-        return dict(
-            train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator
-        )
-    data_collator = DataCollatorForSupervisedDataset(processor.tokenizer)
-    return dict(
-        train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator
-    )
+    else:
+        data_collator = DataCollatorForSupervisedDataset(processor.tokenizer)
+    return dict(train_dataset=train_dataset, eval_dataset=None, data_collator=data_collator)
 
 
 if __name__ == "__main__":

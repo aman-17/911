@@ -26,12 +26,18 @@ VIDEOCHATGPT = {
     "data_path": "PATH_TO_VIDEOCHATGPT_DATA",
 }
 
+TEST_DATA = {
+    "annotation_path": "D:/programs/911/src/vlms/data/test_data.jsonl",
+    "data_path": "",
+}
+
 data_dict = {
     "cambrian_737k": CAMBRIAN_737K,
     "cambrian_737k_pack": CAMBRIAN_737K_PACK,
     "mp_doc": MP_DOC,
     "clevr_mc": CLEVR_MC,
     "videochatgpt": VIDEOCHATGPT,
+    "test_data": TEST_DATA,
 }
 
 
