@@ -1,6 +1,11 @@
 import logging
+import sys
+from pathlib import Path
 
 import torch
+
+project_root = Path(__file__).parent.parent.parent
+sys.path.append(str(project_root))
 
 from post_training.inference.inference_utils import sample_token
 
@@ -72,7 +77,7 @@ if __name__ == "__main__":
         tokenizer=tokenizer,
         prompt=prompt,
         device=device,
-        max_new_tokens=512,
+        max_new_tokens=2048,
         temperature=0.9,
         top_p=0.9,
     )
