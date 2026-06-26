@@ -1,10 +1,4 @@
-import sys
-from pathlib import Path
-
 import torch
-
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
 
 from post_training.data.data_tokenizer import load_model_and_tokenizer
 

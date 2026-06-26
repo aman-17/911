@@ -1,16 +1,11 @@
-import sys
-from pathlib import Path
 from pprint import pprint
 
 import torch
 
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
-
 from post_training.inference.generation import render_prompt
 from post_training.inference.rollout import sample_response
 from post_training.inference.logprobs import sequence_logprob
-from post_training.rewards.reward_funtions import reward_rlvr
+from post_training.rewards.reward_functions import reward_rlvr
 
 
 def compute_grpo_loss(

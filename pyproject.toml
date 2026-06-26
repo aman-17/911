@@ -51,6 +51,7 @@ vlms = [
 
 [project.scripts]
 911-train = "pre_training.train:main"
+911-train-rl = "post_training.train:main"
 911-train-vlm = "vlms.train.train_qwen:train"
 
 [project.urls]

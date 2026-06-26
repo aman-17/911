@@ -1,13 +1,9 @@
-import sys
 import time
 from pathlib import Path
 
 import torch
 
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
-
-from post_training.loss_funtions.policy_gradient import compute_grpo_loss
+from post_training.loss_functions.policy_gradient import compute_grpo_loss
 
 
 def train_rlvr_grpo(
@@ -114,7 +110,7 @@ def append_csv_metrics(
         )
 
 
-if __name__ == "__main__":
+def main():
     from post_training.data.data_tokenizer import load_model_and_tokenizer
     from post_training.data.web_crawling.datasets_from_hf import load_math_train
 
@@ -138,3 +134,7 @@ if __name__ == "__main__":
         checkpoint_every=5,
         checkpoint_dir=".",
     )
+
+
+if __name__ == "__main__":
+    main()
